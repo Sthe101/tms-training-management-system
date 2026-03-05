@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { api } from '@/lib/api';
 
 export default function SignupPage() {
   const router = useRouter();
@@ -45,18 +46,7 @@ export default function SignupPage() {
     setLoading(true);
 
     try {
-      const res = await fetch('http://localhost:3001/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ name, email, password, role }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.message || 'Registration failed');
-      }
+      await api.auth.register({ name, email, password, role });
 
       // Redirect based on role
       const redirectMap: Record<string, string> = {

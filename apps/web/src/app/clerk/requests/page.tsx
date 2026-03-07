@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search } from 'lucide-react';
 import { api } from '@/lib/api';
@@ -74,6 +74,7 @@ export default function ClerkRequestsPage() {
   const [requests, setRequests] = useState<RequestItem[]>([]);
   const [divisions, setDivisions] = useState<Division[]>([]);
   const [loading, setLoading] = useState(true);
+  const filtersInitialized = useRef(false);
 
   // Filters
   const [search, setSearch] = useState('');
@@ -85,7 +86,23 @@ export default function ClerkRequestsPage() {
     ? (divisions.find((d) => d.id === divisionId)?.departments ?? [])
     : [];
 
-  const load = useCallback(async () => {
+  // Initial load — fetches divisions (static) + first request list together
+  const loadInitial = useCallback(async () => {
+    try {
+      const res = await api.clerk.getRequests({}) as { requests: RequestItem[]; divisions: Division[] };
+      setDivisions(res.divisions);
+      setRequests(res.requests);
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to load requests');
+    } finally {
+      setLoading(false);
+      filtersInitialized.current = true;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Filter changes — only re-fetch requests (divisions already in state)
+  const loadRequests = useCallback(async () => {
     setLoading(true);
     try {
       const params: Record<string, string> = {};
@@ -96,7 +113,6 @@ export default function ClerkRequestsPage() {
 
       const res = await api.clerk.getRequests(params) as { requests: RequestItem[]; divisions: Division[] };
       setRequests(res.requests);
-      setDivisions(res.divisions);
     } catch (err: any) {
       toast.error(err?.message || 'Failed to load requests');
     } finally {
@@ -105,9 +121,13 @@ export default function ClerkRequestsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, divisionId, departmentId, status]);
 
+  useEffect(() => { loadInitial(); }, [loadInitial]);
+
   useEffect(() => {
-    load();
-  }, [load]);
+    if (!filtersInitialized.current) return;
+    loadRequests();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, divisionId, departmentId, status]);
 
   function handleDivisionChange(val: string) {
     setDivisionId(val === 'all' ? '' : val);

@@ -7,14 +7,6 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Raw request logger — runs before everything (guards, strategies, cookie parsing)
-  app.use((req: any, _res: any, next: any) => {
-    console.log(`[REQ] ${req.method} ${req.url}`);
-    console.log('[REQ] origin:', req.headers['origin']);
-    console.log('[REQ] cookie header:', req.headers['cookie'] || 'none');
-    next();
-  });
-
   // Security
   app.use(helmet());
   app.use(cookieParser());
@@ -40,9 +32,5 @@ async function bootstrap() {
   const port = process.env.PORT || 3001;
   await app.listen(port);
   console.log(`API running on http://localhost:${port}`);
-  console.log('[DEBUG] NODE_ENV:', process.env.NODE_ENV);
-  console.log('[DEBUG] COOKIE_SECURE:', process.env.COOKIE_SECURE);
-  console.log('[DEBUG] JWT_SECRET set:', !!process.env.JWT_SECRET);
-  console.log('[DEBUG] FRONTEND_URL:', process.env.FRONTEND_URL);
 }
 bootstrap();

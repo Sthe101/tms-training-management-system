@@ -15,23 +15,21 @@ export class ManagerService {
   constructor(private prisma: PrismaService) {}
 
   async getDashboard(userId: string) {
-    const profile = await this.prisma.managerProfile.findUnique({
-      where: { userId },
-      include: { department: { include: { division: true } } },
-    });
-
-    const requests = await this.prisma.trainingRequest.findMany({
-      where: { managerId: userId },
-      include: {
-        trainingCategory: true,
-        employees: { include: { employee: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    const totalEmployees = profile
-      ? await this.prisma.employee.count({ where: { departmentId: profile.departmentId } })
-      : 0;
+    // profile and requests are independent — run in parallel
+    const [profile, requests] = await Promise.all([
+      this.prisma.managerProfile.findUnique({
+        where: { userId },
+        include: { department: { include: { division: true } } },
+      }),
+      this.prisma.trainingRequest.findMany({
+        where: { managerId: userId },
+        include: {
+          trainingCategory: true,
+          employees: { include: { employee: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+    ]);
 
     const activeRequests = requests.filter(
       (r) => r.status === 'PENDING' || r.status === 'IN_PROGRESS',
@@ -40,45 +38,39 @@ export class ManagerService {
     const completionRate =
       requests.length > 0 ? Math.round((completedRequests / requests.length) * 100) : 0;
 
-    let team: any[] = [];
-    if (profile) {
-      team = await this.prisma.employee.findMany({
-        where: { departmentId: profile.departmentId },
-        include: {
-          requestEmployees: {
+    // All team queries depend on profile — run them in parallel once profile is known
+    const [totalEmployees, team, completedCountByEmployee] = profile
+      ? await Promise.all([
+          this.prisma.employee.count({ where: { departmentId: profile.departmentId } }),
+          this.prisma.employee.findMany({
+            where: { departmentId: profile.departmentId },
             include: {
-              request: {
-                include: { trainingCategory: true },
+              requestEmployees: {
+                include: { request: { include: { trainingCategory: true } } },
+                where: { request: { status: { in: ['PENDING', 'IN_PROGRESS'] } } },
+                orderBy: { request: { createdAt: 'desc' } },
+                take: 1,
               },
             },
+            orderBy: { name: 'asc' },
+          }),
+          this.prisma.requestEmployee.groupBy({
+            by: ['employeeId'],
             where: {
-              request: { status: { in: ['PENDING', 'IN_PROGRESS'] } },
+              request: { managerId: userId, status: 'COMPLETED' },
+              employee: { departmentId: profile.departmentId },
             },
-            orderBy: { request: { createdAt: 'desc' } },
-            take: 1,
-          },
-        },
-        orderBy: { name: 'asc' },
-      });
-    }
-
-    const completedCountByEmployee = profile
-      ? await this.prisma.requestEmployee.groupBy({
-          by: ['employeeId'],
-          where: {
-            request: { managerId: userId, status: 'COMPLETED' },
-            employee: { departmentId: profile.departmentId },
-          },
-          _count: { requestId: true },
-        })
-      : [];
+            _count: { requestId: true },
+          }),
+        ])
+      : [0, [], []];
 
     const completedMap: Record<string, number> = {};
-    for (const row of completedCountByEmployee) {
+    for (const row of completedCountByEmployee as { employeeId: string; _count: { requestId: number } }[]) {
       completedMap[row.employeeId] = row._count.requestId;
     }
 
-    const teamWithStats = team.map((emp) => ({
+    const teamWithStats = (team as any[]).map((emp) => ({
       id: emp.id,
       name: emp.name,
       employeeNumber: emp.employeeNumber,

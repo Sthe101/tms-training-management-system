@@ -47,20 +47,22 @@ export class ClerkService {
   constructor(private prisma: PrismaService) {}
 
   async getDashboard() {
-    const all = await this.prisma.trainingRequest.findMany({
-      include: requestInclude(),
-      orderBy: { createdAt: 'desc' },
-    });
-
-    const formatted = all.map(formatRequest);
-    const requiredCount = formatted.filter((r) => r.status === 'PENDING').length;
-    const inProgressCount = formatted.filter((r) => r.status === 'IN_PROGRESS').length;
-    const completedCount = formatted.filter((r) => r.status === 'COMPLETED').length;
-    const recentRequests = formatted.filter((r) => r.status === 'PENDING').slice(0, 5);
+    // TrainingRequest.status is kept in sync by updateEmployeeStatus, so counts are fast
+    const [requiredCount, inProgressCount, completedCount, recentRaw] = await Promise.all([
+      this.prisma.trainingRequest.count({ where: { status: 'PENDING' } }),
+      this.prisma.trainingRequest.count({ where: { status: 'IN_PROGRESS' } }),
+      this.prisma.trainingRequest.count({ where: { status: 'COMPLETED' } }),
+      this.prisma.trainingRequest.findMany({
+        where: { status: 'PENDING' },
+        include: requestInclude(),
+        orderBy: { createdAt: 'desc' },
+        take: 5,
+      }),
+    ]);
 
     return {
       stats: { requiredCount, inProgressCount, completedCount },
-      recentRequests,
+      recentRequests: recentRaw.map(formatRequest),
     };
   }
 

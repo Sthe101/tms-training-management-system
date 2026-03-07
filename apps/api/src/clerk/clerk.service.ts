@@ -4,7 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 function requestInclude() {
   return {
     trainingCategory: true,
-    _count: { select: { employees: true } },
+    employees: { select: { status: true } },
     manager: {
       select: {
         id: true,
@@ -19,17 +19,25 @@ function requestInclude() {
   } as const;
 }
 
+function deriveStatus(employeeStatuses: { status: string }[]): string {
+  if (employeeStatuses.length === 0) return 'PENDING';
+  if (employeeStatuses.some((e) => e.status === 'PENDING')) return 'PENDING';
+  if (employeeStatuses.every((e) => e.status === 'COMPLETED')) return 'COMPLETED';
+  return 'IN_PROGRESS';
+}
+
 function formatRequest(req: any) {
   const profile = req.manager?.managerProfile;
+  const employees: { status: string }[] = req.employees ?? [];
   return {
     id: req.id,
     trainingCategory: req.trainingCategory,
     managerName: req.manager?.name ?? 'Unknown',
     department: profile?.department ?? null,
     division: profile?.department?.division ?? null,
-    employeeCount: req._count?.employees ?? 0,
+    employeeCount: employees.length,
     dueDate: req.dueDate,
-    status: req.status,
+    status: deriveStatus(employees),
     createdAt: req.createdAt,
   };
 }
@@ -39,22 +47,20 @@ export class ClerkService {
   constructor(private prisma: PrismaService) {}
 
   async getDashboard() {
-    const [requiredCount, inProgressCount, completedCount, recentRequests] =
-      await Promise.all([
-        this.prisma.trainingRequest.count({ where: { status: 'PENDING' } }),
-        this.prisma.trainingRequest.count({ where: { status: 'IN_PROGRESS' } }),
-        this.prisma.trainingRequest.count({ where: { status: 'COMPLETED' } }),
-        this.prisma.trainingRequest.findMany({
-          where: { status: 'PENDING' },
-          include: requestInclude(),
-          orderBy: { createdAt: 'desc' },
-          take: 5,
-        }),
-      ]);
+    const all = await this.prisma.trainingRequest.findMany({
+      include: requestInclude(),
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const formatted = all.map(formatRequest);
+    const requiredCount = formatted.filter((r) => r.status === 'PENDING').length;
+    const inProgressCount = formatted.filter((r) => r.status === 'IN_PROGRESS').length;
+    const completedCount = formatted.filter((r) => r.status === 'COMPLETED').length;
+    const recentRequests = formatted.filter((r) => r.status === 'PENDING').slice(0, 5);
 
     return {
       stats: { requiredCount, inProgressCount, completedCount },
-      recentRequests: recentRequests.map(formatRequest),
+      recentRequests,
     };
   }
 
@@ -65,10 +71,6 @@ export class ClerkService {
     status?: string;
   }) {
     const where: any = {};
-
-    if (filters.status) {
-      where.status = filters.status;
-    }
 
     if (filters.search) {
       where.OR = [
@@ -89,7 +91,7 @@ export class ClerkService {
       };
     }
 
-    const [requests, divisions] = await Promise.all([
+    const [rawRequests, divisions] = await Promise.all([
       this.prisma.trainingRequest.findMany({
         where,
         include: requestInclude(),
@@ -101,10 +103,13 @@ export class ClerkService {
       }),
     ]);
 
-    return {
-      requests: requests.map(formatRequest),
-      divisions,
-    };
+    let requests = rawRequests.map(formatRequest);
+
+    if (filters.status) {
+      requests = requests.filter((r) => r.status === filters.status);
+    }
+
+    return { requests, divisions };
   }
 
   async getRequestById(id: string) {

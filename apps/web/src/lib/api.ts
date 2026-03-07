@@ -1,16 +1,28 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const TOKEN_KEY = 'tms_token';
+
+export const tokenStore = {
+  get: (): string | null =>
+    typeof window !== 'undefined' ? localStorage.getItem(TOKEN_KEY) : null,
+  set: (token: string) =>
+    typeof window !== 'undefined' && localStorage.setItem(TOKEN_KEY, token),
+  clear: () =>
+    typeof window !== 'undefined' && localStorage.removeItem(TOKEN_KEY),
+};
 
 export async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
   const url = `${API_URL}/api${endpoint}`;
+  const token = tokenStore.get();
 
   const res = await fetch(url, {
     ...options,
     credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options.headers,
     },
   });

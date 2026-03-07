@@ -37,10 +37,8 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const result = await this.authService.login(loginDto);
-    const opts = cookieOptions();
-    console.log('[AUTH] login cookie options:', opts);
-    res.cookie('token', result.token, opts);
-    return { success: true, user: result.user };
+    res.cookie('token', result.token, cookieOptions());
+    return { success: true, user: result.user, token: result.token };
   }
 
   @Post('register')
@@ -50,7 +48,7 @@ export class AuthController {
   ) {
     const result = await this.authService.register(registerDto);
     res.cookie('token', result.token, cookieOptions());
-    return { success: true, user: result.user };
+    return { success: true, user: result.user, token: result.token };
   }
 
   @Post('logout')

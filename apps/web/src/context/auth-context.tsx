@@ -8,7 +8,7 @@ import {
   ReactNode,
 } from 'react';
 import { useRouter } from 'next/navigation';
-import { api } from '@/lib/api';
+import { api, tokenStore } from '@/lib/api';
 
 interface User {
   id: string;
@@ -43,6 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     await api.auth.logout();
+    tokenStore.clear();
     setUser(null);
     router.push('/login');
   };

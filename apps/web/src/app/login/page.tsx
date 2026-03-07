@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { api } from '@/lib/api';
+import { api, tokenStore } from '@/lib/api';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -31,7 +31,8 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      await api.auth.login({ email, password, role });
+      const result = await api.auth.login({ email, password, role }) as any;
+      if (result.token) tokenStore.set(result.token);
 
       // Redirect based on role
       const redirectMap: Record<string, string> = {

@@ -60,4 +60,18 @@ export const api = {
         method: 'DELETE',
       }),
   },
+
+  trainings: {
+    getAll: () =>
+      apiRequest('/trainings'),
+
+    create: (body: { name: string }) =>
+      apiRequest('/trainings', { method: 'POST', body: JSON.stringify(body) }),
+
+    update: (id: string, body: { name: string }) =>
+      apiRequest(`/trainings/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+
+    delete: (id: string) =>
+      apiRequest(`/trainings/${id}`, { method: 'DELETE' }),
+  },
 };

@@ -68,8 +68,30 @@ async function seedDivisions() {
   }
 }
 
+async function seedTrainings() {
+  const trainings = [
+    'OH HIRA',
+    'IBI Awareness',
+    'First Aid Level 1 & 2',
+    'Environmental Awareness',
+    'Fire Safety',
+    'Lifting & Rigging',
+    'Working at Heights',
+    'Confined Space Entry',
+  ];
+
+  for (const name of trainings) {
+    await prisma.trainingCategory.upsert({
+      where: { name },
+      update: {},
+      create: { name },
+    });
+  }
+}
+
 main()
   .then(() => seedDivisions())
+  .then(() => seedTrainings())
   .catch((e) => {
     console.error(e);
     process.exit(1);

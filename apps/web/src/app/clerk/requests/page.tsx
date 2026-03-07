@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Search } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useToast } from '@/context/toast-context';
@@ -67,6 +68,7 @@ function fmtDate(iso: string) {
 // ─── Main Page ───────────────────────────────────────────────────────────────
 
 export default function ClerkRequestsPage() {
+  const router = useRouter();
   const toast = useToast();
 
   const [requests, setRequests] = useState<RequestItem[]>([]);
@@ -259,7 +261,10 @@ export default function ClerkRequestsPage() {
                     </span>
                   </td>
                   <td className="px-5 py-4">
-                    <button className="text-sm border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 hover:bg-gray-50 transition-colors">
+                    <button
+                      onClick={() => router.push(`/clerk/requests/${req.id}`)}
+                      className="text-sm border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
                       View
                     </button>
                   </td>

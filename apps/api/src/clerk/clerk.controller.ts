@@ -1,4 +1,4 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Patch, Query, Param, Body, UseGuards } from '@nestjs/common';
 import { ClerkService } from './clerk.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -30,5 +30,21 @@ export class ClerkController {
       status,
     });
     return { success: true, ...data };
+  }
+
+  @Get('requests/:id')
+  async getRequestById(@Param('id') id: string) {
+    const data = await this.clerkService.getRequestById(id);
+    return { success: true, request: data };
+  }
+
+  @Patch('requests/:id/employees/:employeeId')
+  async updateEmployeeStatus(
+    @Param('id') id: string,
+    @Param('employeeId') employeeId: string,
+    @Body() body: { status?: string; dueDate?: string | null },
+  ) {
+    const data = await this.clerkService.updateEmployeeStatus(id, employeeId, body);
+    return { success: true, request: data };
   }
 }

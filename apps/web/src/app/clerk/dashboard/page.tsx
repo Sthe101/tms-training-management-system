@@ -205,7 +205,7 @@ export default function ClerkDashboard() {
                 <Button
                   variant="outline"
                   className="text-sm shrink-0 ml-4"
-                  onClick={() => router.push('/clerk/requests')}
+                  onClick={() => router.push(`/clerk/requests/${req.id}`)}
                 >
                   View Details
                 </Button>

@@ -193,5 +193,14 @@ export const api = {
       const qs = params ? '?' + new URLSearchParams(Object.entries(params).filter(([, v]) => v) as [string, string][]).toString() : '';
       return apiRequest(`/clerk/requests${qs}`);
     },
+
+    getRequestById: (id: string) =>
+      apiRequest(`/clerk/requests/${id}`),
+
+    updateEmployeeStatus: (requestId: string, employeeId: string, body: { status?: string; dueDate?: string | null }) =>
+      apiRequest(`/clerk/requests/${requestId}/employees/${employeeId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(body),
+      }),
   },
 };

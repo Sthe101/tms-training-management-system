@@ -23,12 +23,7 @@ export class ClerkController {
     @Query('departmentId') departmentId?: string,
     @Query('status') status?: string,
   ) {
-    const data = await this.clerkService.getRequests({
-      search,
-      divisionId,
-      departmentId,
-      status,
-    });
+    const data = await this.clerkService.getRequests({ search, divisionId, departmentId, status });
     return { success: true, ...data };
   }
 
@@ -42,9 +37,9 @@ export class ClerkController {
   async updateEmployeeStatus(
     @Param('id') id: string,
     @Param('employeeId') employeeId: string,
-    @Body() body: { status?: string; dueDate?: string | null },
+    @Body() body: { status: string },
   ) {
-    const data = await this.clerkService.updateEmployeeStatus(id, employeeId, body);
+    const data = await this.clerkService.updateEmployeeStatus(id, employeeId, body.status);
     return { success: true, request: data };
   }
 }

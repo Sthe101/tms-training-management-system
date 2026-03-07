@@ -1,4 +1,4 @@
-import { IsString, IsArray, IsDateString, IsOptional, IsIn } from 'class-validator';
+import { IsString, IsArray, IsDateString, IsOptional } from 'class-validator';
 import { Transform } from 'class-transformer';
 
 export class UpdateRequestDto {
@@ -9,12 +9,6 @@ export class UpdateRequestDto {
   @IsOptional()
   @IsDateString()
   dueDate?: string;
-
-  @IsOptional()
-  @IsIn(['PENDING', 'IN_PROGRESS', 'COMPLETED'], {
-    message: 'status must be PENDING, IN_PROGRESS, or COMPLETED',
-  })
-  status?: string;
 
   @IsOptional()
   @IsArray()

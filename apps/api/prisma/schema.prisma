@@ -138,7 +138,6 @@ model RequestEmployee {
   requestId  String
   employeeId String
   status     RequestStatus   @default(PENDING)
-  dueDate    DateTime?
   request    TrainingRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
   employee   Employee        @relation(fields: [employeeId], references: [id])
 

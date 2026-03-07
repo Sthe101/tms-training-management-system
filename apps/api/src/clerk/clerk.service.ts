@@ -19,14 +19,6 @@ function requestInclude() {
   } as const;
 }
 
-// Used only by updateEmployeeStatus to sync TrainingRequest.status after an employee update
-function deriveStatus(employeeStatuses: { status: string }[]): string {
-  if (employeeStatuses.length === 0) return 'PENDING';
-  if (employeeStatuses.some((e) => e.status === 'PENDING')) return 'PENDING';
-  if (employeeStatuses.every((e) => e.status === 'COMPLETED')) return 'COMPLETED';
-  return 'IN_PROGRESS';
-}
-
 function formatRequest(req: any) {
   const profile = req.manager?.managerProfile;
   return {
@@ -37,10 +29,19 @@ function formatRequest(req: any) {
     division: profile?.department?.division ?? null,
     employeeCount: req._count?.employees ?? 0,
     dueDate: req.dueDate,
-    // Single source of truth: TrainingRequest.status — synced by updateEmployeeStatus
     status: req.status,
     createdAt: req.createdAt,
   };
+}
+
+// Derives overall request status from per-employee statuses:
+// - Any PENDING employee → PENDING (Required)
+// - All COMPLETED → COMPLETED
+// - Otherwise → IN_PROGRESS
+function deriveStatus(statuses: string[]): 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' {
+  if (statuses.length === 0 || statuses.some((s) => s === 'PENDING')) return 'PENDING';
+  if (statuses.every((s) => s === 'COMPLETED')) return 'COMPLETED';
+  return 'IN_PROGRESS';
 }
 
 @Injectable()
@@ -48,7 +49,6 @@ export class ClerkService {
   constructor(private prisma: PrismaService) {}
 
   async getDashboard() {
-    // TrainingRequest.status is kept in sync by updateEmployeeStatus, so counts are fast
     const [requiredCount, inProgressCount, completedCount, recentRaw] = await Promise.all([
       this.prisma.trainingRequest.count({ where: { status: 'PENDING' } }),
       this.prisma.trainingRequest.count({ where: { status: 'IN_PROGRESS' } }),
@@ -75,9 +75,7 @@ export class ClerkService {
   }) {
     const where: any = {};
 
-    if (filters.status) {
-      where.status = filters.status;
-    }
+    if (filters.status) where.status = filters.status;
 
     if (filters.search) {
       where.OR = [
@@ -87,15 +85,9 @@ export class ClerkService {
     }
 
     if (filters.departmentId) {
-      where.manager = {
-        managerProfile: { departmentId: filters.departmentId },
-      };
+      where.manager = { managerProfile: { departmentId: filters.departmentId } };
     } else if (filters.divisionId) {
-      where.manager = {
-        managerProfile: {
-          department: { divisionId: filters.divisionId },
-        },
-      };
+      where.manager = { managerProfile: { department: { divisionId: filters.divisionId } } };
     }
 
     const [requests, divisions] = await Promise.all([
@@ -151,7 +143,6 @@ export class ClerkService {
         name: re.employee.name,
         employeeNumber: re.employee.employeeNumber,
         status: re.status,
-        dueDate: re.dueDate,
       })),
     };
   }
@@ -159,33 +150,27 @@ export class ClerkService {
   async updateEmployeeStatus(
     requestId: string,
     employeeId: string,
-    dto: { status?: string; dueDate?: string | null },
+    status: string,
   ) {
     const re = await this.prisma.requestEmployee.findUnique({
       where: { requestId_employeeId: { requestId, employeeId } },
     });
     if (!re) throw new NotFoundException('Employee not found on this request');
 
-    const data: any = {};
-    if (dto.status) data.status = dto.status;
-    if (dto.dueDate !== undefined) {
-      data.dueDate = dto.dueDate ? new Date(dto.dueDate) : null;
-    }
-
     await this.prisma.requestEmployee.update({
       where: { requestId_employeeId: { requestId, employeeId } },
-      data,
+      data: { status: status as 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' },
     });
 
-    // Sync TrainingRequest.status from all employee statuses so manager sees updated state
+    // Re-derive and sync TrainingRequest.status from ALL employees
     const allEmployees = await this.prisma.requestEmployee.findMany({
       where: { requestId },
       select: { status: true },
     });
-    const derivedStatus = deriveStatus(allEmployees) as 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';
+    const derived = deriveStatus(allEmployees.map((e) => e.status));
     await this.prisma.trainingRequest.update({
       where: { id: requestId },
-      data: { status: derivedStatus },
+      data: { status: derived },
     });
 
     return this.getRequestById(requestId);

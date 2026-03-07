@@ -125,13 +125,16 @@ export class ManagerService {
     if (!request) throw new NotFoundException('Training request not found');
     if (request.managerId !== userId) throw new ForbiddenException();
 
-    const { employeeIds, dueDate, ...rest } = dto;
-    const data: any = { ...rest };
+    const { employeeIds, dueDate, trainingCategoryId } = dto;
+    const data: any = {};
     if (dueDate) data.dueDate = new Date(dueDate);
+    if (trainingCategoryId) data.trainingCategoryId = trainingCategoryId;
 
     if (employeeIds !== undefined) {
+      // Replacing employees resets all statuses to PENDING, so overall status resets to PENDING
       await this.prisma.requestEmployee.deleteMany({ where: { requestId: id } });
       data.employees = { create: employeeIds.map((employeeId) => ({ employeeId })) };
+      data.status = 'PENDING';
     }
 
     return this.prisma.trainingRequest.update({

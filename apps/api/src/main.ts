@@ -7,6 +7,14 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  // Raw request logger — runs before everything (guards, strategies, cookie parsing)
+  app.use((req: any, _res: any, next: any) => {
+    console.log(`[REQ] ${req.method} ${req.url}`);
+    console.log('[REQ] origin:', req.headers['origin']);
+    console.log('[REQ] cookie header:', req.headers['cookie'] || 'none');
+    next();
+  });
+
   // Security
   app.use(helmet());
   app.use(cookieParser());

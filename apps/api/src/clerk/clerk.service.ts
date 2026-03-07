@@ -176,6 +176,17 @@ export class ClerkService {
       data,
     });
 
+    // Sync TrainingRequest.status from all employee statuses so manager sees updated state
+    const allEmployees = await this.prisma.requestEmployee.findMany({
+      where: { requestId },
+      select: { status: true },
+    });
+    const derivedStatus = deriveStatus(allEmployees) as 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';
+    await this.prisma.trainingRequest.update({
+      where: { id: requestId },
+      data: { status: derivedStatus },
+    });
+
     return this.getRequestById(requestId);
   }
 }

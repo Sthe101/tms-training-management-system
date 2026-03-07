@@ -6,6 +6,7 @@ import {
   Get,
   UseGuards,
   Req,
+  HttpCode,
 } from '@nestjs/common';
 import { Response, Request } from 'express';
 import { AuthService } from './auth.service';
@@ -13,14 +14,15 @@ import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
-const isProduction = () => process.env.NODE_ENV === 'production';
+// COOKIE_SECURE=true must be set explicitly in production env vars.
+// Falls back to NODE_ENV check. SameSite=None + Secure required for cross-origin cookies.
+const isSecure = () =>
+  process.env.COOKIE_SECURE === 'true' || process.env.NODE_ENV === 'production';
 
-// SameSite=None required for cross-origin cookies in production (frontend/API on different domains).
-// SameSite=Lax is fine for local dev (same origin).
 const cookieOptions = () => ({
   httpOnly: true,
-  secure: isProduction(),
-  sameSite: (isProduction() ? 'none' : 'lax') as 'none' | 'lax',
+  secure: isSecure(),
+  sameSite: (isSecure() ? 'none' : 'lax') as 'none' | 'lax',
   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
 });
 
@@ -29,6 +31,7 @@ export class AuthController {
   constructor(private authService: AuthService) {}
 
   @Post('login')
+  @HttpCode(200)
   async login(
     @Body() loginDto: LoginDto,
     @Res({ passthrough: true }) res: Response,

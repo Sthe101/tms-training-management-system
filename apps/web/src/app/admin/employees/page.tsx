@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Users, UserCheck, UserX, Pencil, Trash2, Plus } from 'lucide-react';
+import { Users, UserCheck, UserX, Pencil, Trash2, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -60,7 +60,6 @@ interface DivisionsResponse {
   data: Division[];
 }
 
-const emptyForm = { name: '', employeeNumber: '', divisionId: '', departmentId: '' };
 const emptyErrors = { name: '', employeeNumber: '' };
 
 function validateName(value: string) {
@@ -100,9 +99,12 @@ export default function EmployeesPage() {
   const [editTarget, setEditTarget] = useState<Employee | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; name: string } | null>(null);
 
-  // Forms
-  const [addForm, setAddForm] = useState(emptyForm);
-  const [addErrors, setAddErrors] = useState(emptyErrors);
+  // Add form
+  const [addForm, setAddForm] = useState({ name: '', email: '', employeeNumber: '', divisionId: '', departmentId: '' });
+  const [addErrors, setAddErrors] = useState({ name: '', email: '', employeeNumber: '' });
+  const [submittingAdd, setSubmittingAdd] = useState(false);
+
+  // Edit form
   const [editForm, setEditForm] = useState({ name: '', employeeNumber: '', divisionId: '', departmentId: '', status: 'ACTIVE' });
   const [editErrors, setEditErrors] = useState(emptyErrors);
   const [submitting, setSubmitting] = useState(false);
@@ -143,33 +145,6 @@ export default function EmployeesPage() {
 
   // When division filter changes, reset department filter
   useEffect(() => { setFilterDepartment(''); }, [filterDivision]);
-
-  const handleAddSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const nameErr = validateName(addForm.name);
-    const empErr = validateEmpNum(addForm.employeeNumber);
-    if (nameErr || empErr) {
-      setAddErrors({ name: nameErr, employeeNumber: empErr });
-      return;
-    }
-    setSubmitting(true);
-    try {
-      await api.employees.create({
-        name: addForm.name.trim(),
-        employeeNumber: addForm.employeeNumber.trim().toUpperCase(),
-        departmentId: addForm.departmentId,
-      });
-      toast.success(`Employee "${addForm.name.trim()}" added successfully.`);
-      setAddForm(emptyForm);
-      setAddErrors(emptyErrors);
-      setShowAdd(false);
-      fetchEmployees();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to add employee');
-    } finally {
-      setSubmitting(false);
-    }
-  };
 
   const openEdit = (emp: Employee) => {
     setEditTarget(emp);
@@ -229,19 +204,50 @@ export default function EmployeesPage() {
   const addFormDepts = filteredDepts(addForm.divisionId);
   const editFormDepts = filteredDepts(editForm.divisionId);
 
+  const openAdd = () => {
+    setAddForm({ name: '', email: '', employeeNumber: '', divisionId: '', departmentId: '' });
+    setAddErrors({ name: '', email: '', employeeNumber: '' });
+    setShowAdd(true);
+  };
+
+  const handleAddSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const errs = { name: '', email: '', employeeNumber: '' };
+    if (!addForm.name.trim()) errs.name = 'Name is required';
+    else if (!rules.name.test(addForm.name.trim())) errs.name = messages.name;
+    if (!addForm.email.trim()) errs.email = 'Email is required';
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(addForm.email.trim())) errs.email = 'Invalid email address';
+    if (Object.values(errs).some(Boolean) || !addForm.departmentId) { setAddErrors(errs); return; }
+
+    setSubmittingAdd(true);
+    try {
+      const body: { name: string; email: string; departmentId: string; employeeNumber?: string } = {
+        name: addForm.name.trim(),
+        email: addForm.email.trim().toLowerCase(),
+        departmentId: addForm.departmentId,
+      };
+      if (addForm.employeeNumber.trim()) body.employeeNumber = addForm.employeeNumber.trim().toUpperCase();
+      await api.employees.create(body);
+      toast.success(`Employee "${addForm.name.trim()}" added.`);
+      setShowAdd(false);
+      fetchEmployees();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to add employee');
+    } finally {
+      setSubmittingAdd(false);
+    }
+  };
+
   return (
     <>
       {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Employees</h1>
-          <p className="text-sm text-gray-500 mt-1">Manage your workforce directory</p>
+          <p className="text-sm text-gray-500 mt-1">Manage the workforce directory</p>
         </div>
-        <Button
-          onClick={() => setShowAdd(true)}
-          className="bg-[#0f3460] hover:bg-[#0a2540] text-white"
-        >
-          <Plus className="w-4 h-4 mr-1" />
+        <Button onClick={openAdd} className="flex items-center gap-2 bg-[#0f3460] hover:bg-[#0a2540]">
+          <UserPlus className="w-4 h-4" />
           Add Employee
         </Button>
       </div>
@@ -389,9 +395,9 @@ export default function EmployeesPage() {
       {/* Add Employee Modal */}
       <Modal
         open={showAdd}
-        onClose={() => { setShowAdd(false); setAddForm(emptyForm); setAddErrors(emptyErrors); }}
-        title="Add New Employee"
-        subtitle="Add an employee to the directory."
+        onClose={() => setShowAdd(false)}
+        title="Add Employee"
+        subtitle="Pre-add an employee. If they sign up with the same email, their account links automatically."
       >
         <form onSubmit={handleAddSubmit} className="space-y-4">
           <div className="space-y-1">
@@ -400,11 +406,7 @@ export default function EmployeesPage() {
               id="addName"
               placeholder="e.g. John Smith"
               value={addForm.name}
-              onChange={(e) => {
-                const v = sanitize(e.target.value);
-                setAddForm({ ...addForm, name: v });
-                if (addErrors.name) setAddErrors({ ...addErrors, name: validateName(v) });
-              }}
+              onChange={(e) => { const v = sanitize(e.target.value); setAddForm({ ...addForm, name: v }); setAddErrors({ ...addErrors, name: '' }); }}
               onKeyDown={onSanitizedKeyDown}
               maxLength={100}
               autoFocus
@@ -412,16 +414,24 @@ export default function EmployeesPage() {
             {addErrors.name && <p className="text-xs text-red-500">{addErrors.name}</p>}
           </div>
           <div className="space-y-1">
-            <Label htmlFor="addEmpNum">Employee Number</Label>
+            <Label htmlFor="addEmail">Email</Label>
+            <Input
+              id="addEmail"
+              type="email"
+              placeholder="employee@company.com"
+              value={addForm.email}
+              onChange={(e) => { setAddForm({ ...addForm, email: e.target.value }); setAddErrors({ ...addErrors, email: '' }); }}
+              maxLength={254}
+            />
+            {addErrors.email && <p className="text-xs text-red-500">{addErrors.email}</p>}
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="addEmpNum">Employee Number <span className="text-gray-400 font-normal">(optional)</span></Label>
             <Input
               id="addEmpNum"
-              placeholder="e.g. EMP001"
+              placeholder="e.g. EMP-2025-001 — auto-generated if blank"
               value={addForm.employeeNumber}
-              onChange={(e) => {
-                const v = sanitize(e.target.value).toUpperCase();
-                setAddForm({ ...addForm, employeeNumber: v });
-                if (addErrors.employeeNumber) setAddErrors({ ...addErrors, employeeNumber: validateEmpNum(v) });
-              }}
+              onChange={(e) => { const v = sanitize(e.target.value).toUpperCase(); setAddForm({ ...addForm, employeeNumber: v }); setAddErrors({ ...addErrors, employeeNumber: '' }); }}
               onKeyDown={onSanitizedKeyDown}
               maxLength={20}
             />
@@ -429,47 +439,26 @@ export default function EmployeesPage() {
           </div>
           <div className="space-y-2">
             <Label>Division</Label>
-            <Select
-              value={addForm.divisionId}
-              onValueChange={(v) => setAddForm({ ...addForm, divisionId: v, departmentId: '' })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select a division" />
-              </SelectTrigger>
+            <Select value={addForm.divisionId} onValueChange={(v) => setAddForm({ ...addForm, divisionId: v, departmentId: '' })}>
+              <SelectTrigger><SelectValue placeholder="Select a division" /></SelectTrigger>
               <SelectContent>
-                {divisions.map((d) => (
-                  <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
-                ))}
+                {divisions.map((d) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-2">
             <Label>Department</Label>
-            <Select
-              value={addForm.departmentId}
-              onValueChange={(v) => setAddForm({ ...addForm, departmentId: v })}
-              disabled={!addForm.divisionId}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={addForm.divisionId ? 'Select a department' : 'Select a division first'} />
-              </SelectTrigger>
+            <Select value={addForm.departmentId} onValueChange={(v) => setAddForm({ ...addForm, departmentId: v })} disabled={!addForm.divisionId}>
+              <SelectTrigger><SelectValue placeholder="Select a department" /></SelectTrigger>
               <SelectContent>
-                {addFormDepts.map((d) => (
-                  <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
-                ))}
+                {addFormDepts.map((d) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
           <div className="flex justify-end gap-3 pt-2">
-            <Button type="button" variant="outline" onClick={() => { setShowAdd(false); setAddForm(emptyForm); }}>
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              className="bg-[#0f3460] hover:bg-[#0a2540]"
-              disabled={submitting || !addForm.departmentId}
-            >
-              {submitting ? 'Adding...' : 'Add Employee'}
+            <Button type="button" variant="outline" onClick={() => setShowAdd(false)}>Cancel</Button>
+            <Button type="submit" className="bg-[#0f3460] hover:bg-[#0a2540]" disabled={submittingAdd || !addForm.departmentId}>
+              {submittingAdd ? 'Adding...' : 'Add Employee'}
             </Button>
           </div>
         </form>

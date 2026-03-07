@@ -7,17 +7,16 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { api, tokenStore } from '@/lib/api';
 
+const REDIRECT: Record<string, string> = {
+  ADMIN: '/admin/dashboard',
+  MANAGER: '/manager/dashboard',
+  CLERK: '/clerk/dashboard',
+  EMPLOYEE: '/employee/pending',
+};
+
 export default function LoginPage() {
-  const [role, setRole] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -29,18 +28,9 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const result = await api.auth.login({ email, password, role }) as any;
+      const result = await api.auth.login({ email, password }) as any;
       if (result.token) tokenStore.set(result.token);
-
-      // Redirect based on role
-      const redirectMap: Record<string, string> = {
-        ADMIN: '/admin/dashboard',
-        MANAGER: '/manager/dashboard',
-        CLERK: '/clerk/dashboard',
-      };
-
-      // Full page reload so AuthProvider re-runs useEffect with the Bearer token
-      window.location.href = redirectMap[role] || '/';
+      window.location.href = REDIRECT[result.user?.role] || '/';
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
     } finally {
@@ -50,7 +40,6 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-[#e8f4fc] px-4">
-      {/* Logo and Title */}
       <div className="flex flex-col items-center mb-8">
         <div className="w-14 h-14 bg-[#0891b2] rounded-lg flex items-center justify-center mb-4">
           <ShieldCheck className="w-8 h-8 text-white" />
@@ -59,35 +48,14 @@ export default function LoginPage() {
         <p className="text-[#0891b2]">Training Management System</p>
       </div>
 
-      {/* Login Card */}
       <Card className="w-full max-w-md">
         <CardContent className="pt-6">
           <div className="mb-6">
-            <h2 className="text-xl font-semibold text-gray-900">
-              Sign in to your account
-            </h2>
-            <p className="text-sm text-[#0891b2]">
-              Select your role and enter your credentials
-            </p>
+            <h2 className="text-xl font-semibold text-gray-900">Sign in to your account</h2>
+            <p className="text-sm text-[#0891b2]">Enter your credentials to continue</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Role Select */}
-            <div className="space-y-2">
-              <Label htmlFor="role">Role</Label>
-              <Select value={role} onValueChange={setRole}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select your role" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ADMIN">Admin</SelectItem>
-                  <SelectItem value="MANAGER">Manager</SelectItem>
-                  <SelectItem value="CLERK">Clerk</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Email */}
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -100,7 +68,6 @@ export default function LoginPage() {
               />
             </div>
 
-            {/* Password */}
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
               <Input
@@ -113,16 +80,12 @@ export default function LoginPage() {
               />
             </div>
 
-            {/* Error Message */}
-            {error && (
-              <p className="text-sm text-red-500 text-center">{error}</p>
-            )}
+            {error && <p className="text-sm text-red-500 text-center">{error}</p>}
 
-            {/* Submit Button */}
             <Button
               type="submit"
               className="w-full bg-[#0066a1] hover:bg-[#005080]"
-              disabled={loading || !role}
+              disabled={loading}
             >
               <LogIn className="w-4 h-4 mr-2" />
               {loading ? 'Signing in...' : 'Sign In'}
@@ -131,7 +94,6 @@ export default function LoginPage() {
         </CardContent>
       </Card>
 
-      {/* Sign Up Link */}
       <p className="mt-6 text-sm text-gray-600">
         Don&apos;t have an account?{' '}
         <Link href="/signup" className="text-[#0066a1] hover:underline">

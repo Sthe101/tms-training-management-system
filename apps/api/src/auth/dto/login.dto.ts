@@ -1,11 +1,5 @@
-import { IsEmail, IsEnum, IsNotEmpty, IsString, MaxLength } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsString, MaxLength } from 'class-validator';
 import { Transform } from 'class-transformer';
-
-export enum Role {
-  ADMIN = 'ADMIN',
-  MANAGER = 'MANAGER',
-  CLERK = 'CLERK',
-}
 
 export class LoginDto {
   @Transform(({ value }) => (typeof value === 'string' ? value.trim().toLowerCase() : value))
@@ -17,7 +11,4 @@ export class LoginDto {
   @IsNotEmpty({ message: 'Password is required' })
   @MaxLength(72, { message: 'Password is too long' })
   password: string;
-
-  @IsEnum(Role, { message: 'Invalid role selected' })
-  role: Role;
 }

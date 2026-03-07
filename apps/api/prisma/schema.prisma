@@ -12,24 +12,28 @@ enum Role {
   ADMIN
   MANAGER
   CLERK
+  EMPLOYEE
 }
 
 model User {
-  id        String   @id @default(cuid())
-  name      String
-  email     String   @unique
-  password  String
-  role      Role
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id               String            @id @default(cuid())
+  name             String
+  email            String            @unique
+  password         String
+  role             Role
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  managerProfile   ManagerProfile?
+  trainingRequests TrainingRequest[]
 }
 
 // Slice 4: Training Categories
 model TrainingCategory {
-  id        String             @id @default(cuid())
-  name      String             @unique
-  divisions DivisionTraining[]
-  createdAt DateTime           @default(now())
+  id               String             @id @default(cuid())
+  name             String             @unique
+  divisions        DivisionTraining[]
+  trainingRequests TrainingRequest[]
+  createdAt        DateTime           @default(now())
 }
 
 // Slice 3: Division Training Assignment
@@ -55,17 +59,18 @@ enum EmployeeRole {
 }
 
 model Employee {
-  id             String          @id @default(cuid())
-  name           String
-  employeeNumber String          @unique
-  email          String?
-  departmentId   String
-  department     Department      @relation(fields: [departmentId], references: [id])
-  status         EmployeeStatus  @default(ACTIVE)
-  role           EmployeeRole    @default(EMPLOYEE)
-  managerOf      DivisionManager?
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  id               String            @id @default(cuid())
+  name             String
+  employeeNumber   String            @unique
+  email            String?
+  departmentId     String
+  department       Department        @relation(fields: [departmentId], references: [id])
+  status           EmployeeStatus    @default(ACTIVE)
+  role             EmployeeRole      @default(EMPLOYEE)
+  managerOf        DivisionManager?
+  requestEmployees RequestEmployee[]
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
 }
 
 // Slice 3: Manager Assignment
@@ -91,11 +96,49 @@ model Division {
 }
 
 model Department {
-  id         String           @id @default(cuid())
-  name       String
-  divisionId String
-  division   Division         @relation(fields: [divisionId], references: [id], onDelete: Cascade)
-  employees  Employee[]
-  manager    DivisionManager?
-  createdAt  DateTime         @default(now())
+  id             String           @id @default(cuid())
+  name           String
+  divisionId     String
+  division       Division         @relation(fields: [divisionId], references: [id], onDelete: Cascade)
+  employees      Employee[]
+  manager        DivisionManager?
+  managerProfile ManagerProfile?
+  createdAt      DateTime         @default(now())
+}
+
+// Slice 8: Manager Portal
+model ManagerProfile {
+  id           String     @id @default(cuid())
+  userId       String     @unique
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  departmentId String     @unique
+  department   Department @relation(fields: [departmentId], references: [id])
+  createdAt    DateTime   @default(now())
+}
+
+enum RequestStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+}
+
+model TrainingRequest {
+  id                 String            @id @default(cuid())
+  trainingCategoryId String
+  trainingCategory   TrainingCategory  @relation(fields: [trainingCategoryId], references: [id])
+  managerId          String
+  manager            User              @relation(fields: [managerId], references: [id])
+  dueDate            DateTime
+  status             RequestStatus     @default(PENDING)
+  createdAt          DateTime          @default(now())
+  employees          RequestEmployee[]
+}
+
+model RequestEmployee {
+  requestId  String
+  employeeId String
+  request    TrainingRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  employee   Employee        @relation(fields: [employeeId], references: [id])
+
+  @@id([requestId, employeeId])
 }

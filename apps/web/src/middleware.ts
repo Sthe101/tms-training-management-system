@@ -1,17 +1,14 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-const protectedPaths = ['/admin', '/manager', '/clerk'];
-
 export function middleware(request: NextRequest) {
   // Check either the HttpOnly API cookie (local dev) or the marker cookie set
-  // client-side after login (production cross-origin, where the API cookie is blocked)
+  // client-side after login (production cross-origin, where the API cookie is blocked).
+  // We only verify authentication here — role-based routing is handled client-side
+  // because the JWT role can be stale (admin may promote a user between logins).
   const token = request.cookies.get('token') || request.cookies.get('tms_auth');
-  const { pathname } = request.nextUrl;
 
-  const isProtected = protectedPaths.some((p) => pathname.startsWith(p));
-
-  if (isProtected && !token) {
+  if (!token) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
@@ -19,5 +16,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/manager/:path*', '/clerk/:path*'],
+  matcher: ['/admin/:path*', '/manager/:path*', '/clerk/:path*', '/employee/:path*'],
 };

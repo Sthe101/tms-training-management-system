@@ -55,24 +55,35 @@ export class EmployeesService {
   }
 
   async create(dto: CreateEmployeeDto) {
-    const existing = await this.prisma.employee.findUnique({
-      where: { employeeNumber: dto.employeeNumber },
-    });
-    if (existing) {
-      throw new ConflictException('Employee number already exists');
+    const emailConflict = await this.prisma.employee.findFirst({ where: { email: dto.email } });
+    if (emailConflict) throw new ConflictException('An employee with this email already exists');
+
+    if (dto.employeeNumber) {
+      const numConflict = await this.prisma.employee.findUnique({ where: { employeeNumber: dto.employeeNumber } });
+      if (numConflict) throw new ConflictException('Employee number already exists');
     }
 
-    const dept = await this.prisma.department.findUnique({
-      where: { id: dto.departmentId },
-    });
-    if (!dept) {
-      throw new NotFoundException('Department not found');
-    }
+    const dept = await this.prisma.department.findUnique({ where: { id: dto.departmentId } });
+    if (!dept) throw new NotFoundException('Department not found');
+
+    const employeeNumber = dto.employeeNumber || await this.generateEmployeeNumber();
 
     return this.prisma.employee.create({
-      data: dto,
+      data: { ...dto, employeeNumber },
       include: { department: { include: { division: true } } },
     });
+  }
+
+  private async generateEmployeeNumber(): Promise<string> {
+    const year = new Date().getFullYear();
+    const prefix = `EMP-${year}-`;
+    const count = await this.prisma.employee.count({
+      where: { employeeNumber: { startsWith: prefix } },
+    });
+    let candidate = `${prefix}${String(count + 1).padStart(3, '0')}`;
+    const exists = await this.prisma.employee.findUnique({ where: { employeeNumber: candidate } });
+    if (exists) candidate = `${prefix}${String(count + 2).padStart(3, '0')}`;
+    return candidate;
   }
 
   async update(id: string, dto: UpdateEmployeeDto) {

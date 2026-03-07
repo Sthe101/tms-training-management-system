@@ -112,36 +112,46 @@ export class DivisionsService {
   }
 
   async addManager(divisionId: string, dto: AddManagerDto) {
-    // Verify employee exists and belongs to this division
     const employee = await this.prisma.employee.findFirst({
       where: { id: dto.employeeId, department: { divisionId } },
     });
     if (!employee) throw new NotFoundException('Employee not found in this division');
     if (employee.role === 'MANAGER') throw new ConflictException('Employee is already a manager');
 
-    // Verify department belongs to this division
     const dept = await this.prisma.department.findFirst({
       where: { id: dto.departmentId, divisionId },
     });
     if (!dept) throw new NotFoundException('Department not found in this division');
 
-    // Check department doesn't already have a manager
     const deptManager = await this.prisma.divisionManager.findUnique({
       where: { departmentId: dto.departmentId },
     });
     if (deptManager) throw new ConflictException('This department already has a manager');
 
-    // Promote employee and create manager assignment in a transaction
-    const [, managerRecord] = await this.prisma.$transaction([
-      this.prisma.employee.update({
-        where: { id: dto.employeeId },
-        data: { role: 'MANAGER' },
-      }),
-      this.prisma.divisionManager.create({
+    // Find the linked User account (matched by email)
+    const linkedUser = employee.email
+      ? await this.prisma.user.findUnique({ where: { email: employee.email } })
+      : null;
+
+    const managerRecord = await this.prisma.$transaction(async (tx) => {
+      await tx.employee.update({ where: { id: dto.employeeId }, data: { role: 'MANAGER' } });
+
+      const record = await tx.divisionManager.create({
         data: { divisionId, departmentId: dto.departmentId, employeeId: dto.employeeId },
         include: { employee: { include: { department: true } }, department: true },
-      }),
-    ]);
+      });
+
+      if (linkedUser) {
+        await tx.user.update({ where: { id: linkedUser.id }, data: { role: 'MANAGER' } });
+        await tx.managerProfile.upsert({
+          where: { userId: linkedUser.id },
+          update: { departmentId: dto.departmentId },
+          create: { userId: linkedUser.id, departmentId: dto.departmentId },
+        });
+      }
+
+      return record;
+    });
 
     return managerRecord;
   }
@@ -152,10 +162,19 @@ export class DivisionsService {
     });
     if (!assignment) throw new NotFoundException('Manager assignment not found');
 
-    // Demote employee and remove assignment in a transaction
-    await this.prisma.$transaction([
-      this.prisma.employee.update({ where: { id: employeeId }, data: { role: 'EMPLOYEE' } }),
-      this.prisma.divisionManager.delete({ where: { id: assignment.id } }),
-    ]);
+    const employee = await this.prisma.employee.findUnique({ where: { id: employeeId } });
+    const linkedUser = employee?.email
+      ? await this.prisma.user.findUnique({ where: { email: employee.email } })
+      : null;
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.employee.update({ where: { id: employeeId }, data: { role: 'EMPLOYEE' } });
+      await tx.divisionManager.delete({ where: { id: assignment.id } });
+
+      if (linkedUser) {
+        await tx.user.update({ where: { id: linkedUser.id }, data: { role: 'EMPLOYEE' } });
+        await tx.managerProfile.deleteMany({ where: { userId: linkedUser.id } });
+      }
+    });
   }
 }

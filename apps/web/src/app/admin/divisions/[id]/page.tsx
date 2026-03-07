@@ -27,7 +27,7 @@ import {
 } from '@/components/ui/select';
 import { api } from '@/lib/api';
 import { useToast } from '@/context/toast-context';
-import { sanitize, onSanitizedKeyDown, rules, messages } from '@/lib/validation';
+import { sanitize, onSanitizedKeyDown } from '@/lib/validation';
 
 interface Department { id: string; name: string; divisionId: string }
 interface TrainingCategory { id: string; name: string }
@@ -78,9 +78,10 @@ export default function DivisionDetailPage() {
   const [editDeptNameError, setEditDeptNameError] = useState('');
   const [selectedTrainingId, setSelectedTrainingId] = useState('');
   const [managerForm, setManagerForm] = useState({ employeeId: '', departmentId: '' });
-  const [empForm, setEmpForm] = useState({ name: '', employeeNumber: '', departmentId: '' });
-  const [empErrors, setEmpErrors] = useState({ name: '', employeeNumber: '' });
+  const [addEmpForm, setAddEmpForm] = useState({ name: '', email: '', employeeNumber: '', departmentId: '' });
+  const [addEmpErrors, setAddEmpErrors] = useState({ name: '', email: '', employeeNumber: '' });
   const [submitting, setSubmitting] = useState(false);
+  const [submittingEmp, setSubmittingEmp] = useState(false);
 
   function validateOrgName(v: string) {
     if (!v.trim()) return 'Name is required';
@@ -89,22 +90,6 @@ export default function DivisionDetailPage() {
     if (!rules.orgName.test(v.trim())) return messages.orgName;
     return '';
   }
-  function validatePersonName(v: string) {
-    if (!v.trim()) return 'Name is required';
-    if (v.trim().length < 2) return 'Must be at least 2 characters';
-    if (v.trim().length > 100) return 'Must not exceed 100 characters';
-    if (!rules.name.test(v.trim())) return messages.name;
-    return '';
-  }
-  function validateEmpNum(v: string) {
-    const u = v.trim().toUpperCase();
-    if (!u) return 'Employee number is required';
-    if (u.length < 2) return 'Must be at least 2 characters';
-    if (u.length > 20) return 'Must not exceed 20 characters';
-    if (!rules.employeeNumber.test(u)) return messages.employeeNumber;
-    return '';
-  }
-
   const fetchDivision = useCallback(async () => {
     try {
       const res = await (api.divisions.getById(id) as Promise<DivisionResponse>);
@@ -197,26 +182,38 @@ export default function DivisionDetailPage() {
     } finally { setSubmitting(false); }
   };
 
+  const openAddEmployee = () => {
+    setAddEmpForm({ name: '', email: '', employeeNumber: '', departmentId: division?.departments[0]?.id ?? '' });
+    setAddEmpErrors({ name: '', email: '', employeeNumber: '' });
+    setShowAddEmployee(true);
+  };
+
   const handleAddEmployee = async (e: React.FormEvent) => {
     e.preventDefault();
-    const nameErr = validatePersonName(empForm.name);
-    const empNumErr = validateEmpNum(empForm.employeeNumber);
-    if (nameErr || empNumErr) { setEmpErrors({ name: nameErr, employeeNumber: empNumErr }); return; }
-    setSubmitting(true);
+    const errs = { name: '', email: '', employeeNumber: '' };
+    if (!addEmpForm.name.trim()) errs.name = 'Name is required';
+    if (!addEmpForm.email.trim()) errs.email = 'Email is required';
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(addEmpForm.email.trim())) errs.email = 'Invalid email address';
+    if (Object.values(errs).some(Boolean)) { setAddEmpErrors(errs); return; }
+    if (!addEmpForm.departmentId) return;
+
+    setSubmittingEmp(true);
     try {
-      await api.employees.create({
-        name: empForm.name.trim(),
-        employeeNumber: empForm.employeeNumber.trim().toUpperCase(),
-        departmentId: empForm.departmentId,
-      });
-      toast.success(`Employee "${empForm.name.trim()}" added.`);
-      setEmpForm({ name: '', employeeNumber: '', departmentId: '' });
-      setEmpErrors({ name: '', employeeNumber: '' });
+      const body: { name: string; email: string; departmentId: string; employeeNumber?: string } = {
+        name: addEmpForm.name.trim(),
+        email: addEmpForm.email.trim().toLowerCase(),
+        departmentId: addEmpForm.departmentId,
+      };
+      if (addEmpForm.employeeNumber.trim()) body.employeeNumber = addEmpForm.employeeNumber.trim().toUpperCase();
+      await api.employees.create(body);
+      toast.success(`"${addEmpForm.name.trim()}" added to the division.`);
       setShowAddEmployee(false);
       fetchDivision();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to add employee');
-    } finally { setSubmitting(false); }
+    } finally {
+      setSubmittingEmp(false);
+    }
   };
 
   const handleConfirmDelete = async () => {
@@ -384,7 +381,7 @@ export default function DivisionDetailPage() {
               <Users className="w-5 h-5 text-gray-500" />
               <h2 className="font-semibold text-gray-900">Employees</h2>
             </div>
-            <Button size="sm" className="bg-[#0f3460] hover:bg-[#0a2540] text-white h-8 text-xs" onClick={() => setShowAddEmployee(true)} disabled={division.departments.length === 0}>
+            <Button size="sm" className="bg-[#0f3460] hover:bg-[#0a2540] text-white h-8 text-xs" onClick={openAddEmployee} disabled={division.departments.length === 0}>
               <Plus className="w-3.5 h-3.5 mr-1" /> Add Employee
             </Button>
           </div>
@@ -534,42 +531,58 @@ export default function DivisionDetailPage() {
       </Modal>
 
       {/* Add Employee Modal */}
-      <Modal open={showAddEmployee} onClose={() => { setShowAddEmployee(false); setEmpForm({ name: '', employeeNumber: '', departmentId: '' }); setEmpErrors({ name: '', employeeNumber: '' }); }} title="Add Employee" subtitle="Add a new employee and assign them to a division and department.">
+      <Modal
+        open={showAddEmployee}
+        onClose={() => setShowAddEmployee(false)}
+        title="Add Employee"
+        subtitle="Add an employee to this division. If they sign up with the same email, their account links automatically."
+      >
         <form onSubmit={handleAddEmployee} className="space-y-4">
           <div className="space-y-1">
             <Label htmlFor="empName">Full Name</Label>
             <Input
               id="empName"
               placeholder="e.g. John Smith"
-              value={empForm.name}
-              onChange={(e) => { const v = sanitize(e.target.value); setEmpForm({ ...empForm, name: v }); if (empErrors.name) setEmpErrors({ ...empErrors, name: validatePersonName(v) }); }}
+              value={addEmpForm.name}
+              onChange={(e) => { const v = sanitize(e.target.value); setAddEmpForm({ ...addEmpForm, name: v }); setAddEmpErrors({ ...addEmpErrors, name: '' }); }}
               onKeyDown={onSanitizedKeyDown}
               maxLength={100}
               autoFocus
             />
-            {empErrors.name && <p className="text-xs text-red-500">{empErrors.name}</p>}
+            {addEmpErrors.name && <p className="text-xs text-red-500">{addEmpErrors.name}</p>}
           </div>
           <div className="space-y-1">
-            <Label htmlFor="empNum">Employee Number</Label>
+            <Label htmlFor="empEmail">Email</Label>
             <Input
-              id="empNum"
-              placeholder="e.g. 10011"
-              value={empForm.employeeNumber}
-              onChange={(e) => { const v = sanitize(e.target.value).toUpperCase(); setEmpForm({ ...empForm, employeeNumber: v }); if (empErrors.employeeNumber) setEmpErrors({ ...empErrors, employeeNumber: validateEmpNum(v) }); }}
+              id="empEmail"
+              type="email"
+              placeholder="employee@company.com"
+              value={addEmpForm.email}
+              onChange={(e) => { setAddEmpForm({ ...addEmpForm, email: e.target.value }); setAddEmpErrors({ ...addEmpErrors, email: '' }); }}
+              maxLength={254}
+            />
+            {addEmpErrors.email && <p className="text-xs text-red-500">{addEmpErrors.email}</p>}
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="empNumber">Employee Number <span className="text-gray-400 font-normal">(optional — auto-generated if blank)</span></Label>
+            <Input
+              id="empNumber"
+              placeholder="e.g. EMP-2025-001"
+              value={addEmpForm.employeeNumber}
+              onChange={(e) => { const v = sanitize(e.target.value).toUpperCase(); setAddEmpForm({ ...addEmpForm, employeeNumber: v }); setAddEmpErrors({ ...addEmpErrors, employeeNumber: '' }); }}
               onKeyDown={onSanitizedKeyDown}
               maxLength={20}
             />
-            {empErrors.employeeNumber && <p className="text-xs text-red-500">{empErrors.employeeNumber}</p>}
-          </div>
-          <div className="space-y-2">
-            <Label>Division</Label>
-            <Input value={division.name} disabled className="bg-gray-50 text-gray-500" />
+            {addEmpErrors.employeeNumber && <p className="text-xs text-red-500">{addEmpErrors.employeeNumber}</p>}
           </div>
           <div className="space-y-2">
             <Label>Department</Label>
-            <Select value={empForm.departmentId} onValueChange={(v) => setEmpForm({ ...empForm, departmentId: v })}>
+            <Select
+              value={addEmpForm.departmentId}
+              onValueChange={(v) => setAddEmpForm({ ...addEmpForm, departmentId: v })}
+            >
               <SelectTrigger>
-                <SelectValue placeholder="Select department" />
+                <SelectValue placeholder="Select a department" />
               </SelectTrigger>
               <SelectContent>
                 {division.departments.map((d) => (
@@ -579,8 +592,14 @@ export default function DivisionDetailPage() {
             </Select>
           </div>
           <div className="flex justify-end gap-3 pt-2">
-            <Button type="button" variant="outline" onClick={() => { setShowAddEmployee(false); setEmpForm({ name: '', employeeNumber: '', departmentId: '' }); setEmpErrors({ name: '', employeeNumber: '' }); }}>Cancel</Button>
-            <Button type="submit" className="bg-[#0f3460] hover:bg-[#0a2540]" disabled={submitting || !empForm.departmentId}>{submitting ? 'Adding...' : 'Add Employee'}</Button>
+            <Button type="button" variant="outline" onClick={() => setShowAddEmployee(false)}>Cancel</Button>
+            <Button
+              type="submit"
+              className="bg-[#0f3460] hover:bg-[#0a2540]"
+              disabled={submittingEmp || !addEmpForm.departmentId}
+            >
+              {submittingEmp ? 'Adding...' : 'Add Employee'}
+            </Button>
           </div>
         </form>
       </Modal>

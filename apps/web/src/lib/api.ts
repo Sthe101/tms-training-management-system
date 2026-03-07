@@ -45,10 +45,10 @@ export async function apiRequest<T>(
 
 export const api = {
   auth: {
-    login: (body: { email: string; password: string; role: string }) =>
+    login: (body: { email: string; password: string }) =>
       apiRequest('/auth/login', { method: 'POST', body: JSON.stringify(body) }),
 
-    register: (body: { name: string; email: string; password: string; role: string }) =>
+    register: (body: { name: string; email: string; password: string; divisionId: string; departmentId: string }) =>
       apiRequest('/auth/register', { method: 'POST', body: JSON.stringify(body) }),
 
     logout: () =>
@@ -56,6 +56,15 @@ export const api = {
 
     me: () =>
       apiRequest('/auth/me'),
+
+    getDivisions: () =>
+      apiRequest('/auth/divisions'),
+
+    getProfile: () =>
+      apiRequest('/auth/profile'),
+
+    updateProfile: (body: { name?: string; departmentId?: string; currentPassword?: string; newPassword?: string }) =>
+      apiRequest('/auth/profile', { method: 'PATCH', body: JSON.stringify(body) }),
   },
 
   divisions: {
@@ -131,7 +140,7 @@ export const api = {
       return apiRequest(`/employees${qs}`);
     },
 
-    create: (body: { name: string; employeeNumber: string; departmentId: string }) =>
+    create: (body: { name: string; email: string; departmentId: string; employeeNumber?: string }) =>
       apiRequest('/employees', { method: 'POST', body: JSON.stringify(body) }),
 
     update: (id: string, body: { name?: string; employeeNumber?: string; departmentId?: string; status?: string }) =>
@@ -139,5 +148,40 @@ export const api = {
 
     delete: (id: string) =>
       apiRequest(`/employees/${id}`, { method: 'DELETE' }),
+  },
+
+  manager: {
+    getDashboard: () =>
+      apiRequest('/manager/dashboard'),
+
+    getRequests: () =>
+      apiRequest('/manager/requests'),
+
+    createRequest: (body: { trainingCategoryId: string; dueDate: string; employeeIds: string[] }) =>
+      apiRequest('/manager/requests', { method: 'POST', body: JSON.stringify(body) }),
+
+    updateRequest: (id: string, body: { status?: string; dueDate?: string; employeeIds?: string[] }) =>
+      apiRequest(`/manager/requests/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+
+    deleteRequest: (id: string) =>
+      apiRequest(`/manager/requests/${id}`, { method: 'DELETE' }),
+
+    getTeam: () =>
+      apiRequest('/manager/team'),
+
+    addEmployee: (body: { name: string; email: string; employeeNumber?: string }) =>
+      apiRequest('/manager/employees', { method: 'POST', body: JSON.stringify(body) }),
+
+    updateEmployee: (id: string, body: { name?: string; employeeNumber?: string; status?: string }) =>
+      apiRequest(`/manager/employees/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+
+    removeEmployee: (id: string) =>
+      apiRequest(`/manager/employees/${id}`, { method: 'DELETE' }),
+
+    getCompletedTrainings: (employeeId: string) =>
+      apiRequest(`/manager/employees/${employeeId}/completed-trainings`),
+
+    getTrainingCategories: () =>
+      apiRequest('/manager/training-categories'),
   },
 };

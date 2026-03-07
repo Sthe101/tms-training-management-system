@@ -1,6 +1,5 @@
-import { IsEmail, IsEnum, IsNotEmpty, IsString, MaxLength, MinLength, Matches } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsString, MaxLength, MinLength, Matches } from 'class-validator';
 import { Transform } from 'class-transformer';
-import { Role } from './login.dto';
 
 const stripHtml = (v: unknown) =>
   typeof v === 'string' ? v.trim().replace(/<[^>]*>/g, '').replace(/[<>{}]/g, '') : v;
@@ -27,6 +26,11 @@ export class RegisterDto {
   })
   password: string;
 
-  @IsEnum(Role, { message: 'Invalid role selected' })
-  role: Role;
+  @IsString()
+  @IsNotEmpty({ message: 'Division is required' })
+  divisionId: string;
+
+  @IsString()
+  @IsNotEmpty({ message: 'Department is required' })
+  departmentId: string;
 }

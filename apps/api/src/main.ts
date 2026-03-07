@@ -32,5 +32,9 @@ async function bootstrap() {
   const port = process.env.PORT || 3001;
   await app.listen(port);
   console.log(`API running on http://localhost:${port}`);
+  console.log('[DEBUG] NODE_ENV:', process.env.NODE_ENV);
+  console.log('[DEBUG] COOKIE_SECURE:', process.env.COOKIE_SECURE);
+  console.log('[DEBUG] JWT_SECRET set:', !!process.env.JWT_SECRET);
+  console.log('[DEBUG] FRONTEND_URL:', process.env.FRONTEND_URL);
 }
 bootstrap();

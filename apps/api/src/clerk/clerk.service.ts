@@ -4,7 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 function requestInclude() {
   return {
     trainingCategory: true,
-    employees: { select: { status: true } },
+    _count: { select: { employees: true } },
     manager: {
       select: {
         id: true,
@@ -19,6 +19,7 @@ function requestInclude() {
   } as const;
 }
 
+// Used only by updateEmployeeStatus to sync TrainingRequest.status after an employee update
 function deriveStatus(employeeStatuses: { status: string }[]): string {
   if (employeeStatuses.length === 0) return 'PENDING';
   if (employeeStatuses.some((e) => e.status === 'PENDING')) return 'PENDING';
@@ -28,16 +29,16 @@ function deriveStatus(employeeStatuses: { status: string }[]): string {
 
 function formatRequest(req: any) {
   const profile = req.manager?.managerProfile;
-  const employees: { status: string }[] = req.employees ?? [];
   return {
     id: req.id,
     trainingCategory: req.trainingCategory,
     managerName: req.manager?.name ?? 'Unknown',
     department: profile?.department ?? null,
     division: profile?.department?.division ?? null,
-    employeeCount: employees.length,
+    employeeCount: req._count?.employees ?? 0,
     dueDate: req.dueDate,
-    status: deriveStatus(employees),
+    // Single source of truth: TrainingRequest.status — synced by updateEmployeeStatus
+    status: req.status,
     createdAt: req.createdAt,
   };
 }
@@ -74,6 +75,10 @@ export class ClerkService {
   }) {
     const where: any = {};
 
+    if (filters.status) {
+      where.status = filters.status;
+    }
+
     if (filters.search) {
       where.OR = [
         { trainingCategory: { name: { contains: filters.search, mode: 'insensitive' } } },
@@ -93,7 +98,7 @@ export class ClerkService {
       };
     }
 
-    const [rawRequests, divisions] = await Promise.all([
+    const [requests, divisions] = await Promise.all([
       this.prisma.trainingRequest.findMany({
         where,
         include: requestInclude(),
@@ -105,13 +110,7 @@ export class ClerkService {
       }),
     ]);
 
-    let requests = rawRequests.map(formatRequest);
-
-    if (filters.status) {
-      requests = requests.filter((r) => r.status === filters.status);
-    }
-
-    return { requests, divisions };
+    return { requests: requests.map(formatRequest), divisions };
   }
 
   async getRequestById(id: string) {

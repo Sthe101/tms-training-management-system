@@ -4,10 +4,17 @@ const TOKEN_KEY = 'tms_token';
 export const tokenStore = {
   get: (): string | null =>
     typeof window !== 'undefined' ? localStorage.getItem(TOKEN_KEY) : null,
-  set: (token: string) =>
-    typeof window !== 'undefined' && localStorage.setItem(TOKEN_KEY, token),
-  clear: () =>
-    typeof window !== 'undefined' && localStorage.removeItem(TOKEN_KEY),
+  set: (token: string) => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(TOKEN_KEY, token);
+    // Non-HttpOnly marker cookie so Next.js middleware can detect auth state
+    document.cookie = `tms_auth=1; path=/; max-age=604800; SameSite=Lax`;
+  },
+  clear: () => {
+    if (typeof window === 'undefined') return;
+    localStorage.removeItem(TOKEN_KEY);
+    document.cookie = `tms_auth=; path=/; max-age=0`;
+  },
 };
 
 export async function apiRequest<T>(

@@ -56,7 +56,7 @@ export default function SignupPage() {
         CLERK: '/clerk/dashboard',
       };
 
-      router.push(redirectMap[role] || '/');
+      window.location.href = redirectMap[role] || '/';
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed');
     } finally {

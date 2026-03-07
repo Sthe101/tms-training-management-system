@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ShieldCheck, LogIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -18,7 +17,6 @@ import {
 import { api, tokenStore } from '@/lib/api';
 
 export default function LoginPage() {
-  const router = useRouter();
   const [role, setRole] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -41,7 +39,8 @@ export default function LoginPage() {
         CLERK: '/clerk/dashboard',
       };
 
-      router.push(redirectMap[role] || '/');
+      // Full page reload so AuthProvider re-runs useEffect with the Bearer token
+      window.location.href = redirectMap[role] || '/';
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
     } finally {

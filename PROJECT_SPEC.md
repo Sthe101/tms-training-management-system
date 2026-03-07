@@ -23,27 +23,29 @@
 
 ### 2.2 Admin Portal
 
-**Navigation**: Dashboard | Divisions | Employees | Trainings | Reports | Analytics
+**Navigation**: Dashboard | Divisions | Employees | Trainings *(Reports & Analytics removed until those slices are built)*
 
 **Divisions**
-- View divisions as cards (name, department count, preview list)
+- View divisions as cards (name, department count, preview list) — click `›` to open detail page
 - Add/Delete Division
-- Division Details page:
-  - Departments: list + add + delete
-  - Applicable Trainings: assign/remove training categories
-  - Managers: add/remove manager
-  - Employees: add/remove employee
+- Division Details page (`/admin/divisions/[id]`):
+  - Departments: list + add (name only) + rename + delete
+  - Applicable Trainings: assign from dropdown (unassigned only) + remove
+  - Managers: promote existing employee to manager + demote (employee stays in directory)
+  - Employees: add employee (division pre-filled) + remove
 
-**Employees Directory**
+**Employees Directory** (`/admin/employees`)
 - Summary cards: Total / Active / Inactive
 - Search by name or employee number
-- Filters: division, department, status
-- Table listing with delete action
-- Add Employee modal
+- Filters: division → cascading department → status
+- Table listing with edit + delete actions
+- Add Employee modal (Full Name, Employee #, Division → Department cascade)
+- Edit Employee modal (same fields + Status toggle)
 
-**Trainings**
-- List training categories (name + target employees)
-- Add/Delete training category
+**Trainings** (`/admin/trainings`)
+- List training categories with edit + delete actions
+- Add Training modal (name only)
+- Edit Training modal (pre-filled name)
 
 **Reports + Analytics**
 - MVP placeholder pages with navigation access
@@ -110,32 +112,39 @@ tms-training-management-system/
 
 ## 4. Database Schema
 
-### Core Entities
-- **User**: id, email, password, role, createdAt, updatedAt
-- **Division**: id, name, createdAt
-- **Department**: id, name, divisionId
-- **Employee**: id, name, employeeNumber, departmentId, status, managerId
-- **TrainingCategory**: id, name, targetEmployees
-- **DivisionTraining**: divisionId, trainingCategoryId (M:M)
-- **TrainingRequest**: id, trainingCategoryId, managerId, dueDate, status, createdAt
+### Implemented Models
+- **User**: id, name, email, password, role (ADMIN|MANAGER|CLERK), createdAt, updatedAt
+- **Division**: id, name, createdAt → has many Department, DivisionTraining, DivisionManager
+- **Department**: id, name, divisionId → has many Employee; has one DivisionManager (optional)
+- **Employee**: id, name, employeeNumber (unique), email?, departmentId, status (ACTIVE|INACTIVE), role (EMPLOYEE|MANAGER), createdAt, updatedAt → has one DivisionManager? (if promoted)
+- **TrainingCategory**: id, name (unique), createdAt → has many DivisionTraining
+- **DivisionTraining**: divisionId + trainingCategoryId (composite PK) — M:M between Division and TrainingCategory
+- **DivisionManager**: id, divisionId, departmentId (unique), employeeId (unique), assignedAt — enforces one manager per department and one assignment per employee
+
+### Pending Models (future slices)
+- **TrainingRequest**: id, trainingCategoryId, managerId (DivisionManager), dueDate, status, createdAt
 - **RequestEmployee**: requestId, employeeId, status, dueDate
-- **Manager**: id, userId, departmentId
 
 ---
 
 ## 5. UI Components (Reusable)
 
+### Built & In Use
+| Component | Path | Description |
+|-----------|------|-------------|
+| `<Modal>` | `src/components/ui/modal.tsx` | Backdrop + X close + title + cyan subtitle |
+| `<ConfirmDialog>` | `src/components/ui/confirm-dialog.tsx` | Wraps Modal, AlertTriangle, destructive/default variant |
+| `<Button>` | shadcn/ui | Primary dark blue `bg-[#0f3460]`, outline, destructive variants |
+| `<Input>` | shadcn/ui | Standard text input |
+| `<Label>` | shadcn/ui | Form label |
+| `<Select>` + sub-components | shadcn/ui | Radix UI select dropdown |
+
+### Planned (future slices)
 | Component | Description |
 |-----------|-------------|
-| DashboardStatCard | Metric card with label |
-| PageHeader | Title + action buttons |
-| DataTable | Sortable table shell |
 | StatusBadge | Required/In Progress/Completed + Active/Inactive |
-| ModalForm | Consistent modal layout |
-| ConfirmDialog | Delete confirmations |
 | RequestCard | Training request card UI |
 | EmployeeSelectList | Checkbox list for requests |
-| FiltersBar | Search + dropdown filters |
 
 ### Responsive Design Requirements
 
@@ -191,13 +200,13 @@ All features must be fully responsive across breakpoints:
 |-------|---------|--------|
 | 0 | Project Foundation Setup | Complete |
 | 1 | Authentication System | Complete |
-| 2 | Admin - Divisions Management | Next |
-| 3 | Admin - Departments Management | Pending |
-| 4 | Admin - Training Categories | Pending |
-| 5 | Admin - Division Training Assignment | Pending |
-| 6 | Admin - Employees Directory | Pending |
-| 7 | Admin - Manager Assignment | Pending |
-| 8 | Manager - Dashboard & Team View | Pending |
+| 2 | Admin - Divisions Management | Complete |
+| 3 | Admin - Division Detail Page | Complete |
+| 4 | Admin - Training Categories | Complete |
+| 5 | Admin - Division Training Assignment | Complete (part of Slice 3) |
+| 6 | Admin - Employees Directory | Complete |
+| 7 | Admin - Manager Assignment | Complete (part of Slice 3) |
+| 8 | Manager - Dashboard & Team View | Next |
 | 9 | Manager - Training Requests CRUD | Pending |
 | 10 | Manager - Add Employee | Pending |
 | 11 | Clerk - Dashboard & Incoming Requests | Pending |
@@ -226,11 +235,32 @@ All features must be fully responsive across breakpoints:
 - [x] Build signup page UI (from screenshot)
 - [x] Implement role-based redirect
 
-### Current Slice: 2 - Admin Divisions Management
-- [ ] Add Division model to Prisma schema
-- [ ] Create divisions CRUD endpoints
-- [ ] Build admin layout with sidebar
-- [ ] Build divisions page UI
+### Slice 2: Admin Divisions Management - COMPLETE
+- [x] Division, Department models in Prisma schema
+- [x] GET/POST/DELETE /divisions, POST/PATCH/DELETE /divisions/:id/departments
+- [x] Admin layout (top navbar, navlinks, useAuth for name/logout)
+- [x] Divisions page — cards grid, Add Division modal, Add Department modal, delete with ConfirmDialog
+
+### Slice 3: Admin Division Detail Page - COMPLETE
+- [x] DivisionTraining, DivisionManager models in Prisma schema
+- [x] GET /divisions/:id (full detail — departments, trainings, managers, employees)
+- [x] POST/DELETE /divisions/:id/trainings — assign/unassign training categories
+- [x] POST/DELETE /divisions/:id/managers — promote/demote employee as manager via DivisionManager
+- [x] Division detail page — 4 panels: Departments, Applicable Trainings, Managers, Employees
+- [x] ChevronRight on division cards navigates to detail page
+
+### Slice 4: Admin Training Categories - COMPLETE
+- [x] TrainingCategory model in Prisma schema
+- [x] GET/POST/PATCH/DELETE /trainings
+- [x] Trainings page — table list, Add modal, Edit modal, delete with ConfirmDialog
+
+### Slice 6: Admin Employees Directory - COMPLETE
+- [x] Employee model (with status, role, email) in Prisma schema
+- [x] GET (search + filters) /POST/PATCH/DELETE /employees
+- [x] Employees page — stat cards (Total/Active/Inactive), filters bar, table, Add modal, Edit modal
+- [x] Input validation on all DTOs + frontend (lib/validation.ts)
+
+### Next: Slice 8 - Manager Portal (Dashboard & Team View)
 
 ---
 
@@ -323,7 +353,82 @@ All features must be fully responsive across breakpoints:
 
 ---
 
-## 10. Screenshot Reference Log
+## 10. API Endpoint Reference
+
+### Auth (`/api/auth`)
+| Method | Path | Guard | Body |
+|--------|------|-------|------|
+| POST | /auth/login | public | `{ email, password, role }` |
+| POST | /auth/register | public | `{ name, email, password, role }` |
+| POST | /auth/logout | public | — |
+| GET | /auth/me | JWT | — |
+
+### Divisions (`/api/divisions`) — ADMIN only
+| Method | Path | Body |
+|--------|------|------|
+| GET | /divisions | — |
+| POST | /divisions | `{ name }` |
+| DELETE | /divisions/:id | — |
+| GET | /divisions/:id | — |
+| POST | /divisions/:id/departments | `{ name }` |
+| PATCH | /divisions/:id/departments/:deptId | `{ name }` |
+| DELETE | /divisions/:id/departments/:deptId | — |
+| POST | /divisions/:id/trainings | `{ trainingCategoryId }` |
+| DELETE | /divisions/:id/trainings/:trainingCategoryId | — |
+| POST | /divisions/:id/managers | `{ employeeId, departmentId }` |
+| DELETE | /divisions/:id/managers/:employeeId | — |
+
+### Trainings (`/api/trainings`) — ADMIN only
+| Method | Path | Body |
+|--------|------|------|
+| GET | /trainings | — |
+| POST | /trainings | `{ name }` |
+| PATCH | /trainings/:id | `{ name }` |
+| DELETE | /trainings/:id | — |
+
+### Employees (`/api/employees`) — ADMIN only
+| Method | Path | Body / Query |
+|--------|------|------|
+| GET | /employees | `?search&divisionId&departmentId&status` → returns `{ employees, stats }` |
+| POST | /employees | `{ name, employeeNumber, departmentId }` |
+| PATCH | /employees/:id | `{ name?, employeeNumber?, departmentId?, status? }` |
+| DELETE | /employees/:id | — |
+
+### Key API Response Patterns
+- All endpoints return `{ success: true, data: ... }` or `{ success: true, employees: [...], stats: {...} }`
+- Errors return NestJS default `{ statusCode, message, error }` format
+- All requests use `credentials: 'include'` (HTTP-only cookie auth)
+- API base URL: `NEXT_PUBLIC_API_URL` env var (default `http://localhost:3001`)
+
+## 11. Frontend Architecture
+
+### Key Files
+| File | Purpose |
+|------|---------|
+| `src/middleware.ts` | Route protection — redirects unauthenticated to /login |
+| `src/context/auth-context.tsx` | `useAuth()` — current user, logout |
+| `src/context/toast-context.tsx` | `useToast()` — success/error/info/warning toasts |
+| `src/lib/api.ts` | Typed API client — all fetch calls go through here |
+| `src/lib/validation.ts` | `sanitize`, `onSanitizedKeyDown`, `rules`, `messages` |
+| `src/components/ui/modal.tsx` | Reusable modal with backdrop + close button |
+| `src/components/ui/confirm-dialog.tsx` | Destructive action confirmation |
+
+### Colour Scheme
+| Token | Value | Usage |
+|-------|-------|-------|
+| Primary cyan | `#0891b2` | Links, active states, employee numbers, info toasts |
+| Dark blue | `#0f3460` | Primary buttons |
+| Background | `#f1f5f9` | Page background |
+| Light blue bg | `#e0f2fe` | Icon backgrounds |
+| Indigo | `#6366f1` | Admin Portal badge |
+
+### useCallback / useEffect Pattern
+All data-fetch functions use `useCallback` with `[]` deps (toast ref excluded) + `// eslint-disable-next-line react-hooks/exhaustive-deps` to avoid stale-closure infinite loops. The `ToastProvider` value is wrapped in `useMemo` for the same reason.
+
+### Schema Changes
+Use `npx prisma db push` (NOT `migrate dev`) — the terminal is non-interactive and `migrate dev` requires prompts.
+
+## 12. Screenshot Reference Log
 
 | Date | Feature | Screenshot |
 |------|---------|------------|
@@ -332,3 +437,8 @@ All features must be fully responsive across breakpoints:
 | 2026-03-07 | Admin Divisions Page | Screenshot 2026-03-07 101313.png |
 | 2026-03-07 | Admin Add Division Modal | Screenshot 2026-03-07 101357.png |
 | 2026-03-07 | Admin Add Department Modal | Screenshot 2026-03-07 101413.png |
+| 2026-03-07 | Admin Division Detail Page | Screenshot 2026-03-07 125052.png |
+| 2026-03-07 | Division Detail - Add Department Modal | Screenshot 2026-03-07 125106.png |
+| 2026-03-07 | Division Detail - Assign Training Modal | Screenshot 2026-03-07 125133.png |
+| 2026-03-07 | Division Detail - Add Manager Modal | Screenshot 2026-03-07 125156.png |
+| 2026-03-07 | Division Detail - Add Employee Modal | Screenshot 2026-03-07 125217.png |

@@ -37,7 +37,9 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const result = await this.authService.login(loginDto);
-    res.cookie('token', result.token, cookieOptions());
+    const opts = cookieOptions();
+    console.log('[AUTH] login cookie options:', opts);
+    res.cookie('token', result.token, opts);
     return { success: true, user: result.user };
   }
 

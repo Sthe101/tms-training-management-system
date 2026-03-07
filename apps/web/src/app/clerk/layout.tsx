@@ -6,7 +6,10 @@ import { ClipboardList } from 'lucide-react';
 import { UserNav } from '@/components/ui/user-nav';
 import { useRoleGuard } from '@/hooks/use-role-guard';
 
-const navLinks = [{ href: '/clerk/dashboard', label: 'Dashboard' }];
+const navLinks = [
+  { href: '/clerk/dashboard', label: 'Dashboard' },
+  { href: '/clerk/requests', label: 'Requests' },
+];
 
 export default function ClerkLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();

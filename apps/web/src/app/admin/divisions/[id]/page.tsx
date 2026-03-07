@@ -27,7 +27,7 @@ import {
 } from '@/components/ui/select';
 import { api } from '@/lib/api';
 import { useToast } from '@/context/toast-context';
-import { sanitize, onSanitizedKeyDown } from '@/lib/validation';
+import { sanitize, onSanitizedKeyDown, rules, messages } from '@/lib/validation';
 
 interface Department { id: string; name: string; divisionId: string }
 interface TrainingCategory { id: string; name: string }

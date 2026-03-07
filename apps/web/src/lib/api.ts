@@ -184,4 +184,14 @@ export const api = {
     getTrainingCategories: () =>
       apiRequest('/manager/training-categories'),
   },
+
+  clerk: {
+    getDashboard: () =>
+      apiRequest('/clerk/dashboard'),
+
+    getRequests: (params?: { search?: string; divisionId?: string; departmentId?: string; status?: string }) => {
+      const qs = params ? '?' + new URLSearchParams(Object.entries(params).filter(([, v]) => v) as [string, string][]).toString() : '';
+      return apiRequest(`/clerk/requests${qs}`);
+    },
+  },
 };

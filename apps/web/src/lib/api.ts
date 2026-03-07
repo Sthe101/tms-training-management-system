@@ -43,6 +43,9 @@ export const api = {
     getAll: () =>
       apiRequest('/divisions'),
 
+    getById: (id: string) =>
+      apiRequest(`/divisions/${id}`),
+
     create: (body: { name: string }) =>
       apiRequest('/divisions', { method: 'POST', body: JSON.stringify(body) }),
 
@@ -55,8 +58,36 @@ export const api = {
         body: JSON.stringify(body),
       }),
 
+    updateDepartment: (divisionId: string, deptId: string, body: { name: string }) =>
+      apiRequest(`/divisions/${divisionId}/departments/${deptId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(body),
+      }),
+
     deleteDepartment: (divisionId: string, deptId: string) =>
       apiRequest(`/divisions/${divisionId}/departments/${deptId}`, {
+        method: 'DELETE',
+      }),
+
+    assignTraining: (divisionId: string, body: { trainingCategoryId: string }) =>
+      apiRequest(`/divisions/${divisionId}/trainings`, {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
+
+    unassignTraining: (divisionId: string, trainingCategoryId: string) =>
+      apiRequest(`/divisions/${divisionId}/trainings/${trainingCategoryId}`, {
+        method: 'DELETE',
+      }),
+
+    addManager: (divisionId: string, body: { employeeId: string; departmentId: string }) =>
+      apiRequest(`/divisions/${divisionId}/managers`, {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
+
+    removeManager: (divisionId: string, employeeId: string) =>
+      apiRequest(`/divisions/${divisionId}/managers/${employeeId}`, {
         method: 'DELETE',
       }),
   },

@@ -10,8 +10,6 @@ const navLinks = [
   { href: '/admin/divisions', label: 'Divisions' },
   { href: '/admin/employees', label: 'Employees' },
   { href: '/admin/trainings', label: 'Trainings' },
-  { href: '/admin/reports', label: 'Reports' },
-  { href: '/admin/analytics', label: 'Analytics' },
 ];
 
 export default function AdminLayout({

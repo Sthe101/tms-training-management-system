@@ -26,9 +26,21 @@ model User {
 
 // Slice 4: Training Categories
 model TrainingCategory {
-  id        String   @id @default(cuid())
-  name      String   @unique
-  createdAt DateTime @default(now())
+  id        String             @id @default(cuid())
+  name      String             @unique
+  divisions DivisionTraining[]
+  createdAt DateTime           @default(now())
+}
+
+// Slice 3: Division Training Assignment
+model DivisionTraining {
+  divisionId         String
+  trainingCategoryId String
+  division           Division         @relation(fields: [divisionId], references: [id], onDelete: Cascade)
+  trainingCategory   TrainingCategory @relation(fields: [trainingCategoryId], references: [id], onDelete: Cascade)
+  assignedAt         DateTime         @default(now())
+
+  @@id([divisionId, trainingCategoryId])
 }
 
 // Slice 6: Employees
@@ -43,30 +55,47 @@ enum EmployeeRole {
 }
 
 model Employee {
-  id             String         @id @default(cuid())
+  id             String          @id @default(cuid())
   name           String
-  employeeNumber String         @unique
+  employeeNumber String          @unique
+  email          String?
   departmentId   String
-  department     Department     @relation(fields: [departmentId], references: [id])
-  status         EmployeeStatus @default(ACTIVE)
-  role           EmployeeRole   @default(EMPLOYEE)
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  department     Department      @relation(fields: [departmentId], references: [id])
+  status         EmployeeStatus  @default(ACTIVE)
+  role           EmployeeRole    @default(EMPLOYEE)
+  managerOf      DivisionManager?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+}
+
+// Slice 3: Manager Assignment
+model DivisionManager {
+  id           String     @id @default(cuid())
+  divisionId   String
+  departmentId String     @unique
+  employeeId   String     @unique
+  division     Division   @relation(fields: [divisionId], references: [id], onDelete: Cascade)
+  department   Department @relation(fields: [departmentId], references: [id])
+  employee     Employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  assignedAt   DateTime   @default(now())
 }
 
 // Slice 2: Divisions & Departments
 model Division {
-  id          String       @id @default(cuid())
-  name        String       @unique
-  createdAt   DateTime     @default(now())
+  id          String             @id @default(cuid())
+  name        String             @unique
+  createdAt   DateTime           @default(now())
   departments Department[]
+  trainings   DivisionTraining[]
+  managers    DivisionManager[]
 }
 
 model Department {
-  id         String     @id @default(cuid())
+  id         String           @id @default(cuid())
   name       String
   divisionId String
-  division   Division   @relation(fields: [divisionId], references: [id], onDelete: Cascade)
+  division   Division         @relation(fields: [divisionId], references: [id], onDelete: Cascade)
   employees  Employee[]
-  createdAt  DateTime   @default(now())
+  manager    DivisionManager?
+  createdAt  DateTime         @default(now())
 }

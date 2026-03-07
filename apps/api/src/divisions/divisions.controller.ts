@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Delete,
   Body,
   Param,
@@ -15,6 +16,8 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { DivisionsService } from './divisions.service';
 import { CreateDivisionDto } from './dto/create-division.dto';
 import { CreateDepartmentDto } from './dto/create-department.dto';
+import { AssignTrainingDto } from './dto/assign-training.dto';
+import { AddManagerDto } from './dto/add-manager.dto';
 
 @Controller('divisions')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -25,6 +28,12 @@ export class DivisionsController {
   @Get()
   async findAll() {
     const data = await this.divisionsService.findAll();
+    return { success: true, data };
+  }
+
+  @Get(':id')
+  async findById(@Param('id') id: string) {
+    const data = await this.divisionsService.findById(id);
     return { success: true, data };
   }
 
@@ -42,11 +51,18 @@ export class DivisionsController {
   }
 
   @Post(':id/departments')
-  async addDepartment(
+  async addDepartment(@Param('id') id: string, @Body() dto: CreateDepartmentDto) {
+    const data = await this.divisionsService.addDepartment(id, dto);
+    return { success: true, data };
+  }
+
+  @Patch(':id/departments/:deptId')
+  async updateDepartment(
     @Param('id') id: string,
+    @Param('deptId') deptId: string,
     @Body() dto: CreateDepartmentDto,
   ) {
-    const data = await this.divisionsService.addDepartment(id, dto);
+    const data = await this.divisionsService.updateDepartment(id, deptId, dto);
     return { success: true, data };
   }
 
@@ -57,6 +73,38 @@ export class DivisionsController {
     @Param('deptId') deptId: string,
   ) {
     await this.divisionsService.removeDepartment(divisionId, deptId);
+    return { success: true };
+  }
+
+  @Post(':id/trainings')
+  async assignTraining(@Param('id') id: string, @Body() dto: AssignTrainingDto) {
+    const data = await this.divisionsService.assignTraining(id, dto);
+    return { success: true, data };
+  }
+
+  @Delete(':id/trainings/:trainingCategoryId')
+  @HttpCode(HttpStatus.OK)
+  async unassignTraining(
+    @Param('id') id: string,
+    @Param('trainingCategoryId') trainingCategoryId: string,
+  ) {
+    await this.divisionsService.unassignTraining(id, trainingCategoryId);
+    return { success: true };
+  }
+
+  @Post(':id/managers')
+  async addManager(@Param('id') id: string, @Body() dto: AddManagerDto) {
+    const data = await this.divisionsService.addManager(id, dto);
+    return { success: true, data };
+  }
+
+  @Delete(':id/managers/:employeeId')
+  @HttpCode(HttpStatus.OK)
+  async removeManager(
+    @Param('id') id: string,
+    @Param('employeeId') employeeId: string,
+  ) {
+    await this.divisionsService.removeManager(id, employeeId);
     return { success: true };
   }
 }

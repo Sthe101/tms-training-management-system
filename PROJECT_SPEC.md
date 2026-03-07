@@ -242,6 +242,19 @@ All features must be fully responsive across breakpoints:
 - Reuse existing UI components (shadcn/ui) before creating new ones.
 - All new pages must follow the **responsive requirements** in Section 5.
 
+### Component & Code Reuse (apply to every new feature)
+
+- **Always reuse existing components** before creating new ones. Check these first:
+  - `<Modal>` — all modal dialogs (`src/components/ui/modal.tsx`)
+  - `<ConfirmDialog>` — all destructive confirmations (`src/components/ui/confirm-dialog.tsx`)
+  - shadcn/ui: `<Button>`, `<Input>`, `<Label>`, `<Select>` and its sub-components
+  - `useToast()` — all user feedback
+  - `useAuth()` — current user access
+- **Reuse existing API endpoints** where possible — e.g. adding an employee from a division detail page reuses `POST /api/employees`, not a new endpoint.
+- **Reuse `lib/validation.ts`** utilities (`sanitize`, `onSanitizedKeyDown`, `rules`, `messages`) in every form. Do not duplicate validation logic.
+- **Do not recreate layout or nav** — the admin/manager/clerk layouts are already built; new pages just provide their content.
+- Only create a new component or utility if it is reused in 2+ places or is too complex to inline.
+
 ### Notifications & Error Handling (apply to every new feature)
 
 - **Never** use `window.alert()`, `window.confirm()`, or inline `{error && <p>}` patterns.
@@ -262,9 +275,24 @@ All features must be fully responsive across breakpoints:
 
 - **An Employee and a Manager are the same entity** — there is no separate `Manager` model.
 - The `Employee` model has a `role` field: `EMPLOYEE` (default) or `MANAGER`.
-- When assigning a manager to a division/department in later slices, select from employees where `role = MANAGER`.
 - The auth `User` model (ADMIN/MANAGER/CLERK) is separate from the `Employee` directory model. A User with role MANAGER will be linked to an Employee record in a future slice.
 - The `Employee` model owns the `departmentId` relation, and Department cascades from Division.
+- Employees have an optional `email` field used to identify and contact managers.
+
+### Manager Assignment Logic (`DivisionManager` join table)
+
+- Promoting to manager is done via the **Division Detail page** — select an existing `EMPLOYEE` from that division and a department they will manage.
+- This creates a `DivisionManager` record and sets `Employee.role = MANAGER` in a single transaction.
+- **`DivisionManager` enforces:**
+  - `employeeId @unique` — one employee can only be a manager in one assignment at a time
+  - `departmentId @unique` — each department can have at most one manager
+  - Cascade deletes from both Division and Employee
+- Removing a manager deletes the `DivisionManager` record and demotes `Employee.role` back to `EMPLOYEE`. The employee stays in the directory.
+- The **Employees panel** on the Division Detail page only shows `role = EMPLOYEE` records — managers are shown exclusively in the Managers panel.
+- **Endpoints:**
+  - `POST /divisions/:id/managers` — `{ employeeId, departmentId }` — promote employee to manager
+  - `DELETE /divisions/:id/managers/:employeeId` — demote manager back to employee
+- **When building features that reference managers**, query via `DivisionManager` (include `employee` + `department`) rather than filtering `Employee.role = MANAGER` directly, as `DivisionManager` holds the authoritative department assignment.
 
 ### Validation & Input Security (apply to every new feature)
 

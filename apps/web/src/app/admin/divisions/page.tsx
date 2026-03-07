@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { Building2, Trash2, ChevronRight, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -185,12 +186,13 @@ export default function DivisionsPage() {
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
-                  <button
-                    className="text-gray-400 hover:text-gray-600 p-1"
+                  <Link
+                    href={`/admin/divisions/${division.id}`}
+                    className="text-gray-400 hover:text-[#0891b2] p-1 transition-colors"
                     title="View details"
                   >
                     <ChevronRight className="w-4 h-4" />
-                  </button>
+                  </Link>
                 </div>
               </div>
               {division.departments.length > 0 && (

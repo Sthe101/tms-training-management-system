@@ -10,6 +10,14 @@ import { PrismaService } from '../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 
+// Fields returned for the current user — password is never included
+const USER_SELECT = {
+  id: true,
+  name: true,
+  email: true,
+  role: true,
+} as const;
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -20,42 +28,20 @@ export class AuthService {
   async login(loginDto: LoginDto) {
     const { email, password, role } = loginDto;
 
-    // Find user by email
-    const user = await this.prisma.user.findUnique({
-      where: { email },
-    });
+    // Fetch with password only for bcrypt comparison — never returned to client
+    const user = await this.prisma.user.findUnique({ where: { email } });
 
-    if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
+    if (!user) throw new UnauthorizedException('Invalid credentials');
 
-    // Verify password
     const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
+    if (!isPasswordValid) throw new UnauthorizedException('Invalid credentials');
 
-    // Verify role matches
-    if (user.role !== role) {
-      throw new BadRequestException('Invalid role for this account');
-    }
+    if (user.role !== role) throw new BadRequestException('Invalid role for this account');
 
-    // Generate JWT token
-    const payload = {
-      sub: user.id,
-      email: user.email,
-      role: user.role,
-    };
-
-    const token = this.jwtService.sign(payload);
+    const token = this.jwtService.sign({ sub: user.id, email: user.email, role: user.role });
 
     return {
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-      },
+      user: { id: user.id, name: user.name, email: user.email, role: user.role },
       token,
     };
   }
@@ -63,62 +49,29 @@ export class AuthService {
   async register(registerDto: RegisterDto) {
     const { name, email, password, role } = registerDto;
 
-    // Check if user already exists
-    const existingUser = await this.prisma.user.findUnique({
-      where: { email },
-    });
+    const existingUser = await this.prisma.user.findUnique({ where: { email } });
+    if (existingUser) throw new ConflictException('Email already registered');
 
-    if (existingUser) {
-      throw new ConflictException('Email already registered');
-    }
-
-    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create user
     const user = await this.prisma.user.create({
-      data: {
-        name,
-        email,
-        password: hashedPassword,
-        role,
-      },
+      data: { name, email, password: hashedPassword, role },
+      select: USER_SELECT,
     });
 
-    // Generate JWT token
-    const payload = {
-      sub: user.id,
-      email: user.email,
-      role: user.role,
-    };
+    const token = this.jwtService.sign({ sub: user.id, email: user.email, role: user.role });
 
-    const token = this.jwtService.sign(payload);
-
-    return {
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-      },
-      token,
-    };
+    return { user, token };
   }
 
   async validateUser(userId: string) {
+    // Uses select so the password hash is never loaded into memory for session validation
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
+      select: USER_SELECT,
     });
 
-    if (!user) {
-      throw new UnauthorizedException('User not found');
-    }
-
-    return {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-    };
+    if (!user) throw new UnauthorizedException('User not found');
+    return user;
   }
 }

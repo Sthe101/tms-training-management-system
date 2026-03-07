@@ -344,6 +344,22 @@ All features must be fully responsive across breakpoints:
 - Clear errors on modal close; re-validate live once an error has been shown (on each change)
 - Never rely solely on `required` HTML attribute — always validate programmatically
 
+### Sensitive Data Rules (apply to every new feature)
+
+- **Never return the `password` field** from any endpoint. In the `User` model, always use Prisma `select` to explicitly list safe fields (`id`, `name`, `email`, `role`) — never use `findUnique` without a `select` on the User model.
+- **`USER_SELECT` constant** is defined in `auth.service.ts` — use it as a reference for what fields are safe to return.
+- **Never log or expose** JWT tokens, password hashes, or database connection strings in responses, logs, or error messages.
+- **Prisma queries on sensitive models** must use `select` to exclude sensitive columns rather than relying on manual object destructuring after the fact.
+- For future models with sensitive fields (e.g. personal data), apply the same `select` pattern at the query level.
+
+### Production Cookie / CORS Requirements
+
+- **`NODE_ENV=production`** must be set on the API server — this enables `SameSite=None; Secure` on auth cookies, which is **required** when the frontend and API are on different domains.
+- `SameSite=Lax` (used in dev) blocks cross-origin cookie sending — auth will appear to work (login 201) but subsequent requests (like `/auth/me`) will 401 because the cookie is never sent.
+- **`clearCookie` must use the same options** (`sameSite`, `secure`) as when the cookie was set, otherwise the browser won't clear it on logout.
+- **`FRONTEND_URL`** env var must match the deployed frontend domain exactly — used in CORS `origin`. A mismatch causes all API requests to fail with CORS errors.
+- Cookie options are centralised in `cookieOptions()` in `auth.controller.ts` — update there if options change.
+
 ### Auth Requirements (apply to every new feature)
 
 - **Route protection**: All `/admin/*`, `/manager/*`, `/clerk/*` routes are protected by Next.js middleware (`src/middleware.ts`). Unauthenticated users are redirected to `/login`. This is already in place — do not remove or bypass it.

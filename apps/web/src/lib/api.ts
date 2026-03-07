@@ -38,4 +38,26 @@ export const api = {
     me: () =>
       apiRequest('/auth/me'),
   },
+
+  divisions: {
+    getAll: () =>
+      apiRequest('/divisions'),
+
+    create: (body: { name: string }) =>
+      apiRequest('/divisions', { method: 'POST', body: JSON.stringify(body) }),
+
+    delete: (id: string) =>
+      apiRequest(`/divisions/${id}`, { method: 'DELETE' }),
+
+    addDepartment: (divisionId: string, body: { name: string }) =>
+      apiRequest(`/divisions/${divisionId}/departments`, {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
+
+    deleteDepartment: (divisionId: string, deptId: string) =>
+      apiRequest(`/divisions/${divisionId}/departments/${deptId}`, {
+        method: 'DELETE',
+      }),
+  },
 };

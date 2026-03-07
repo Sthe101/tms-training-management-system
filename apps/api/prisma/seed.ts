@@ -40,7 +40,36 @@ async function main() {
   });
 }
 
+async function seedDivisions() {
+  const divisionsData = [
+    { name: 'Operations', departments: ['Production', 'Logistics'] },
+    { name: 'Engineering', departments: ['Maintenance', 'Design'] },
+    { name: 'Safety & Compliance', departments: ['HSE', 'Quality Control'] },
+    { name: 'Administration', departments: ['HR', 'Finance'] },
+  ];
+
+  for (const { name, departments } of divisionsData) {
+    const division = await prisma.division.upsert({
+      where: { name },
+      update: {},
+      create: { name },
+    });
+
+    for (const deptName of departments) {
+      const existing = await prisma.department.findFirst({
+        where: { name: deptName, divisionId: division.id },
+      });
+      if (!existing) {
+        await prisma.department.create({
+          data: { name: deptName, divisionId: division.id },
+        });
+      }
+    }
+  }
+}
+
 main()
+  .then(() => seedDivisions())
   .catch((e) => {
     console.error(e);
     process.exit(1);

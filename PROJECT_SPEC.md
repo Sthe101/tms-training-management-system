@@ -234,11 +234,45 @@ All features must be fully responsive across breakpoints:
 
 ---
 
-## 9. Screenshot Reference Log
+## 9. Build Guidelines
 
-(Screenshots will be added here as the project progresses)
+- Build **incrementally from screenshots** — do not add features, UI elements, or functionality not shown in the reference screenshots unless strictly necessary for the feature to function.
+- Each piece of working functionality gets its **own small commit** before moving to the next.
+- Follow the **implementation slices** order; do not skip ahead.
+- Reuse existing UI components (shadcn/ui) before creating new ones.
+- All new pages must follow the **responsive requirements** in Section 5.
+
+### Notifications & Error Handling (apply to every new feature)
+
+- **Never** use `window.alert()`, `window.confirm()`, or inline `{error && <p>}` patterns.
+- Use `useToast()` from `src/context/toast-context.tsx` for all feedback:
+  - `toast.success(msg)` — operation completed successfully (green)
+  - `toast.error(msg)` — operation failed, API error, network error (red)
+  - `toast.warning(msg)` — non-blocking warnings (amber)
+  - `toast.info(msg)` — informational messages (cyan)
+- Use `<ConfirmDialog>` from `src/components/ui/confirm-dialog.tsx` for all destructive confirmations (delete, deactivate, etc.).
+- **Always handle these cases** in every API call:
+  - Success → `toast.success()`
+  - Known API error (e.g. conflict, not found) → `toast.error(err.message)`
+  - Unknown/network error → `toast.error('Something went wrong. Please try again.')`
+  - Loading state on fetch → show skeleton or "Loading..." text
+  - Empty state → show a helpful empty state message
+
+### Auth Requirements (apply to every new feature)
+
+- **Route protection**: All `/admin/*`, `/manager/*`, `/clerk/*` routes are protected by Next.js middleware (`src/middleware.ts`). Unauthenticated users are redirected to `/login`. This is already in place — do not remove or bypass it.
+- **Auth context**: Every page/component that needs the current user must use the `useAuth()` hook from `src/context/auth-context.tsx`. Do **not** call `api.auth.me()` directly in individual components.
+- **Role-specific layouts**: Each role layout (`admin/layout.tsx`, `manager/layout.tsx`, `clerk/layout.tsx`) uses `useAuth()` to display the user's name and provide a logout button.
+- **API protection**: Every backend endpoint must be guarded with `JwtAuthGuard` + `RolesGuard` and the appropriate `@Roles()` decorator.
+
+---
+
+## 10. Screenshot Reference Log
 
 | Date | Feature | Screenshot |
 |------|---------|------------|
 | 2026-03-05 | Login Page | Screenshot 2026-03-05 130018.png |
 | 2026-03-05 | Signup Page | Screenshot 2026-03-05 143539.png |
+| 2026-03-07 | Admin Divisions Page | Screenshot 2026-03-07 101313.png |
+| 2026-03-07 | Admin Add Division Modal | Screenshot 2026-03-07 101357.png |
+| 2026-03-07 | Admin Add Department Modal | Screenshot 2026-03-07 101413.png |

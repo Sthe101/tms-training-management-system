@@ -8,9 +8,12 @@ import { JwtStrategy } from './jwt.strategy';
 @Module({
   imports: [
     PassportModule.register({ defaultStrategy: 'jwt' }),
-    JwtModule.register({
-      secret: process.env.JWT_SECRET || 'tms-jwt-secret',
-      signOptions: { expiresIn: process.env.JWT_EXPIRATION || '7d' },
+    // registerAsync delays secret evaluation until after env vars are fully loaded
+    JwtModule.registerAsync({
+      useFactory: () => ({
+        secret: process.env.JWT_SECRET,
+        signOptions: { expiresIn: process.env.JWT_EXPIRATION || '7d' },
+      }),
     }),
   ],
   controllers: [AuthController],

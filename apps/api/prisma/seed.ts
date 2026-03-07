@@ -89,9 +89,43 @@ async function seedTrainings() {
   }
 }
 
+async function seedEmployees() {
+  const deptNames = ['Production', 'Logistics', 'Maintenance', 'Design', 'HSE', 'Quality Control', 'HR', 'Finance'];
+  const departments = await Promise.all(
+    deptNames.map((name) => prisma.department.findFirst({ where: { name } }))
+  );
+  const deptMap: Record<string, string> = {};
+  deptNames.forEach((name, i) => {
+    if (departments[i]) deptMap[name] = departments[i]!.id;
+  });
+
+  const employees = [
+    { name: 'John Smith', employeeNumber: 'EMP001', dept: 'Production' },
+    { name: 'Sarah Johnson', employeeNumber: 'EMP002', dept: 'Logistics' },
+    { name: 'Michael Brown', employeeNumber: 'EMP003', dept: 'Maintenance', role: 'MANAGER' },
+    { name: 'Emily Davis', employeeNumber: 'EMP004', dept: 'HSE' },
+    { name: 'Robert Wilson', employeeNumber: 'EMP005', dept: 'HR', role: 'MANAGER' },
+    { name: 'Jessica Taylor', employeeNumber: 'EMP006', dept: 'Finance' },
+    { name: 'David Anderson', employeeNumber: 'EMP007', dept: 'Design' },
+    { name: 'Lisa Thomas', employeeNumber: 'EMP008', dept: 'Quality Control' },
+  ];
+
+  for (const { name, employeeNumber, dept, role } of employees) {
+    const departmentId = deptMap[dept];
+    if (!departmentId) continue;
+    const existing = await prisma.employee.findUnique({ where: { employeeNumber } });
+    if (!existing) {
+      await prisma.employee.create({
+        data: { name, employeeNumber, departmentId, role: (role as any) || 'EMPLOYEE' },
+      });
+    }
+  }
+}
+
 main()
   .then(() => seedDivisions())
   .then(() => seedTrainings())
+  .then(() => seedEmployees())
   .catch((e) => {
     console.error(e);
     process.exit(1);

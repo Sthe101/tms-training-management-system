@@ -31,6 +31,29 @@ model TrainingCategory {
   createdAt DateTime @default(now())
 }
 
+// Slice 6: Employees
+enum EmployeeStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum EmployeeRole {
+  EMPLOYEE
+  MANAGER
+}
+
+model Employee {
+  id             String         @id @default(cuid())
+  name           String
+  employeeNumber String         @unique
+  departmentId   String
+  department     Department     @relation(fields: [departmentId], references: [id])
+  status         EmployeeStatus @default(ACTIVE)
+  role           EmployeeRole   @default(EMPLOYEE)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+}
+
 // Slice 2: Divisions & Departments
 model Division {
   id          String       @id @default(cuid())
@@ -40,9 +63,10 @@ model Division {
 }
 
 model Department {
-  id         String   @id @default(cuid())
+  id         String     @id @default(cuid())
   name       String
   divisionId String
-  division   Division @relation(fields: [divisionId], references: [id], onDelete: Cascade)
-  createdAt  DateTime @default(now())
+  division   Division   @relation(fields: [divisionId], references: [id], onDelete: Cascade)
+  employees  Employee[]
+  createdAt  DateTime   @default(now())
 }

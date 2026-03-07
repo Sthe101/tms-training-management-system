@@ -74,4 +74,20 @@ export const api = {
     delete: (id: string) =>
       apiRequest(`/trainings/${id}`, { method: 'DELETE' }),
   },
+
+  employees: {
+    getAll: (params?: { search?: string; divisionId?: string; departmentId?: string; status?: string }) => {
+      const qs = params ? '?' + new URLSearchParams(Object.entries(params).filter(([, v]) => v) as [string, string][]).toString() : '';
+      return apiRequest(`/employees${qs}`);
+    },
+
+    create: (body: { name: string; employeeNumber: string; departmentId: string }) =>
+      apiRequest('/employees', { method: 'POST', body: JSON.stringify(body) }),
+
+    update: (id: string, body: { name?: string; employeeNumber?: string; departmentId?: string; status?: string }) =>
+      apiRequest(`/employees/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+
+    delete: (id: string) =>
+      apiRequest(`/employees/${id}`, { method: 'DELETE' }),
+  },
 };

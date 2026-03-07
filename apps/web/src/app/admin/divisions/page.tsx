@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/select';
 import { api } from '@/lib/api';
 import { useToast } from '@/context/toast-context';
+import { sanitize, onSanitizedKeyDown, rules, messages } from '@/lib/validation';
 
 interface Department {
   id: string;
@@ -38,10 +39,20 @@ export default function DivisionsPage() {
   const [showAddDepartment, setShowAddDepartment] = useState(false);
 
   const [divisionName, setDivisionName] = useState('');
+  const [divisionNameError, setDivisionNameError] = useState('');
   const [deptName, setDeptName] = useState('');
+  const [deptNameError, setDeptNameError] = useState('');
   const [deptDivisionId, setDeptDivisionId] = useState('');
 
   const [submitting, setSubmitting] = useState(false);
+
+  function validateOrgName(value: string) {
+    if (!value.trim()) return 'Name is required';
+    if (value.trim().length < 2) return 'Must be at least 2 characters';
+    if (value.trim().length > 100) return 'Must not exceed 100 characters';
+    if (!rules.orgName.test(value.trim())) return messages.orgName;
+    return '';
+  }
 
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; name: string } | null>(null);
 
@@ -63,12 +74,15 @@ export default function DivisionsPage() {
 
   const handleCreateDivision = async (e: React.FormEvent) => {
     e.preventDefault();
+    const err = validateOrgName(divisionName);
+    if (err) { setDivisionNameError(err); return; }
     setSubmitting(true);
     try {
-      await api.divisions.create({ name: divisionName });
+      await api.divisions.create({ name: divisionName.trim() });
       setDivisionName('');
+      setDivisionNameError('');
       setShowAddDivision(false);
-      toast.success(`Division "${divisionName}" created successfully.`);
+      toast.success(`Division "${divisionName.trim()}" created successfully.`);
       fetchDivisions();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to create division');
@@ -79,14 +93,17 @@ export default function DivisionsPage() {
 
   const handleCreateDepartment = async (e: React.FormEvent) => {
     e.preventDefault();
+    const err = validateOrgName(deptName);
+    if (err) { setDeptNameError(err); return; }
     setSubmitting(true);
     try {
-      await api.divisions.addDepartment(deptDivisionId, { name: deptName });
-      const divisionName = divisions.find((d) => d.id === deptDivisionId)?.name;
+      await api.divisions.addDepartment(deptDivisionId, { name: deptName.trim() });
+      const divName = divisions.find((d) => d.id === deptDivisionId)?.name;
       setDeptName('');
+      setDeptNameError('');
       setDeptDivisionId('');
       setShowAddDepartment(false);
-      toast.success(`Department added to ${divisionName}.`);
+      toast.success(`Department added to ${divName}.`);
       fetchDivisions();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to create department');
@@ -193,21 +210,27 @@ export default function DivisionsPage() {
       {/* Add Division Modal */}
       <Modal
         open={showAddDivision}
-        onClose={() => setShowAddDivision(false)}
+        onClose={() => { setShowAddDivision(false); setDivisionName(''); setDivisionNameError(''); }}
         title="Add New Division"
         subtitle="Create a new organizational division."
       >
         <form onSubmit={handleCreateDivision} className="space-y-4">
-          <div className="space-y-2">
+          <div className="space-y-1">
             <Label htmlFor="divisionName">Division Name</Label>
             <Input
               id="divisionName"
               placeholder="e.g. Operations"
               value={divisionName}
-              onChange={(e) => setDivisionName(e.target.value)}
-              required
+              onChange={(e) => {
+                const v = sanitize(e.target.value);
+                setDivisionName(v);
+                if (divisionNameError) setDivisionNameError(validateOrgName(v));
+              }}
+              onKeyDown={onSanitizedKeyDown}
+              maxLength={100}
               autoFocus
             />
+            {divisionNameError && <p className="text-xs text-red-500">{divisionNameError}</p>}
           </div>
           <div className="flex justify-end gap-3 pt-2">
             <Button
@@ -231,7 +254,7 @@ export default function DivisionsPage() {
       {/* Add Department Modal */}
       <Modal
         open={showAddDepartment}
-        onClose={() => setShowAddDepartment(false)}
+        onClose={() => { setShowAddDepartment(false); setDeptName(''); setDeptNameError(''); setDeptDivisionId(''); }}
         title="Add New Department"
         subtitle="Create a new department within a division."
       >
@@ -251,15 +274,21 @@ export default function DivisionsPage() {
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-2">
+          <div className="space-y-1">
             <Label htmlFor="deptName">Department Name</Label>
             <Input
               id="deptName"
               placeholder="e.g. Production"
               value={deptName}
-              onChange={(e) => setDeptName(e.target.value)}
-              required
+              onChange={(e) => {
+                const v = sanitize(e.target.value);
+                setDeptName(v);
+                if (deptNameError) setDeptNameError(validateOrgName(v));
+              }}
+              onKeyDown={onSanitizedKeyDown}
+              maxLength={100}
             />
+            {deptNameError && <p className="text-xs text-red-500">{deptNameError}</p>}
           </div>
           <div className="flex justify-end gap-3 pt-2">
             <Button

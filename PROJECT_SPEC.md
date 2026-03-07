@@ -258,6 +258,34 @@ All features must be fully responsive across breakpoints:
   - Loading state on fetch → show skeleton or "Loading..." text
   - Empty state → show a helpful empty state message
 
+### Employee & Manager Model
+
+- **An Employee and a Manager are the same entity** — there is no separate `Manager` model.
+- The `Employee` model has a `role` field: `EMPLOYEE` (default) or `MANAGER`.
+- When assigning a manager to a division/department in later slices, select from employees where `role = MANAGER`.
+- The auth `User` model (ADMIN/MANAGER/CLERK) is separate from the `Employee` directory model. A User with role MANAGER will be linked to an Employee record in a future slice.
+- The `Employee` model owns the `departmentId` relation, and Department cascades from Division.
+
+### Validation & Input Security (apply to every new feature)
+
+**Backend (DTOs — enforced by global `ValidationPipe` with `whitelist: true, forbidNonWhitelisted: true, transform: true`):**
+- All string fields must use `@Transform` to trim whitespace and strip HTML tags/injection chars: `value.trim().replace(/<[^>]*>/g, '').replace(/[<>{}]/g, '')`
+- **Person/place names** (employee name, user name): `@MinLength(2)` `@MaxLength(100)` `@Matches(/^[a-zA-Z\s\-'.]+$/)`
+- **Org names** (division, department, training category): `@MinLength(2)` `@MaxLength(100)` `@Matches(/^[a-zA-Z0-9\s\-&'.()]+$/)`
+- **Employee number**: uppercase-normalize via `@Transform`, `@MinLength(2)` `@MaxLength(20)` `@Matches(/^[A-Z0-9][A-Z0-9\-]*$/)`
+- **Email fields**: `@IsEmail()` + `@MaxLength(254)` + lowercase-normalize via `@Transform`
+- **Passwords**: `@MinLength(8)` `@MaxLength(72)` (bcrypt limit) `@Matches` for complexity (upper + lower + digit)
+- All enums use `@IsEnum()` with a descriptive message
+
+**Frontend (UX layer — `apps/web/src/lib/validation.ts`):**
+- Import `sanitize`, `onSanitizedKeyDown`, `rules`, `messages` from `@/lib/validation`
+- Apply `onChange={(e) => { const v = sanitize(e.target.value); ... }}` on all text inputs
+- Apply `onKeyDown={onSanitizedKeyDown}` on all text inputs (blocks `< > { } \``)
+- Apply `maxLength={N}` on all inputs matching backend limits
+- Validate all required fields **before submit** and display inline `<p className="text-xs text-red-500">` error messages
+- Clear errors on modal close; re-validate live once an error has been shown (on each change)
+- Never rely solely on `required` HTML attribute — always validate programmatically
+
 ### Auth Requirements (apply to every new feature)
 
 - **Route protection**: All `/admin/*`, `/manager/*`, `/clerk/*` routes are protected by Next.js middleware (`src/middleware.ts`). Unauthenticated users are redirected to `/login`. This is already in place — do not remove or bypass it.

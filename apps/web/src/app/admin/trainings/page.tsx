@@ -9,6 +9,7 @@ import { Modal } from '@/components/ui/modal';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { api } from '@/lib/api';
 import { useToast } from '@/context/toast-context';
+import { sanitize, onSanitizedKeyDown, rules, messages } from '@/lib/validation';
 
 interface TrainingCategory {
   id: string;
@@ -25,8 +26,18 @@ export default function TrainingsPage() {
   const [editTarget, setEditTarget] = useState<TrainingCategory | null>(null);
 
   const [name, setName] = useState('');
+  const [nameError, setNameError] = useState('');
   const [editName, setEditName] = useState('');
+  const [editNameError, setEditNameError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  function validateOrgName(value: string) {
+    if (!value.trim()) return 'Name is required';
+    if (value.trim().length < 2) return 'Must be at least 2 characters';
+    if (value.trim().length > 100) return 'Must not exceed 100 characters';
+    if (!rules.orgName.test(value.trim())) return messages.orgName;
+    return '';
+  }
 
   const [confirmDelete, setConfirmDelete] = useState<TrainingCategory | null>(null);
 
@@ -48,12 +59,15 @@ export default function TrainingsPage() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+    const err = validateOrgName(name);
+    if (err) { setNameError(err); return; }
     setSubmitting(true);
     try {
-      await api.trainings.create({ name });
+      await api.trainings.create({ name: name.trim() });
       setName('');
+      setNameError('');
       setShowAdd(false);
-      toast.success(`"${name}" added to training categories.`);
+      toast.success(`"${name.trim()}" added to training categories.`);
       fetchTrainings();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to create training category');
@@ -65,11 +79,14 @@ export default function TrainingsPage() {
   const handleEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editTarget) return;
+    const err = validateOrgName(editName);
+    if (err) { setEditNameError(err); return; }
     setSubmitting(true);
     try {
-      await api.trainings.update(editTarget.id, { name: editName });
+      await api.trainings.update(editTarget.id, { name: editName.trim() });
       setShowEdit(false);
       setEditTarget(null);
+      setEditNameError('');
       toast.success('Training category updated.');
       fetchTrainings();
     } catch (err) {
@@ -172,21 +189,27 @@ export default function TrainingsPage() {
       {/* Add Modal */}
       <Modal
         open={showAdd}
-        onClose={() => setShowAdd(false)}
+        onClose={() => { setShowAdd(false); setName(''); setNameError(''); }}
         title="Add Training Category"
         subtitle="Create a new training category available in the system."
       >
         <form onSubmit={handleCreate} className="space-y-4">
-          <div className="space-y-2">
+          <div className="space-y-1">
             <Label htmlFor="trainingName">Training Name</Label>
             <Input
               id="trainingName"
               placeholder="e.g. Confined Space Entry"
               value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
+              onChange={(e) => {
+                const v = sanitize(e.target.value);
+                setName(v);
+                if (nameError) setNameError(validateOrgName(v));
+              }}
+              onKeyDown={onSanitizedKeyDown}
+              maxLength={100}
               autoFocus
             />
+            {nameError && <p className="text-xs text-red-500">{nameError}</p>}
           </div>
           <div className="flex justify-end gap-3 pt-2">
             <Button type="button" variant="outline" onClick={() => setShowAdd(false)}>
@@ -206,20 +229,26 @@ export default function TrainingsPage() {
       {/* Edit Modal */}
       <Modal
         open={showEdit}
-        onClose={() => setShowEdit(false)}
+        onClose={() => { setShowEdit(false); setEditNameError(''); }}
         title="Edit Training Category"
         subtitle="Update the training name."
       >
         <form onSubmit={handleEdit} className="space-y-4">
-          <div className="space-y-2">
+          <div className="space-y-1">
             <Label htmlFor="editName">Training Name</Label>
             <Input
               id="editName"
               value={editName}
-              onChange={(e) => setEditName(e.target.value)}
-              required
+              onChange={(e) => {
+                const v = sanitize(e.target.value);
+                setEditName(v);
+                if (editNameError) setEditNameError(validateOrgName(v));
+              }}
+              onKeyDown={onSanitizedKeyDown}
+              maxLength={100}
               autoFocus
             />
+            {editNameError && <p className="text-xs text-red-500">{editNameError}</p>}
           </div>
           <div className="flex justify-end gap-3 pt-2">
             <Button type="button" variant="outline" onClick={() => setShowEdit(false)}>

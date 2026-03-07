@@ -68,4 +68,18 @@ export class AuthController {
       user: req.user,
     };
   }
+
+  // TEMPORARY DEBUG ENDPOINT — remove after auth issue is resolved
+  @Get('debug')
+  async debug(@Req() req: Request) {
+    return {
+      nodeEnv: process.env.NODE_ENV,
+      cookieSecure: process.env.COOKIE_SECURE,
+      jwtSecretSet: !!process.env.JWT_SECRET,
+      frontendUrl: process.env.FRONTEND_URL,
+      cookieHeader: req.headers['cookie'] || 'none',
+      cookiesParsed: req.cookies ? Object.keys(req.cookies) : [],
+      origin: req.headers['origin'] || 'none',
+    };
+  }
 }

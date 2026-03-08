@@ -180,22 +180,19 @@ export default function RequestDetailPage() {
                   <p className="text-sm font-medium text-gray-900">{emp.name}</p>
                   <p className="text-xs text-[#0891b2]">{emp.employeeNumber}</p>
                 </div>
-                <div className="flex items-center gap-3">
-                  <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${STATUS_STYLES[emp.status] ?? 'bg-gray-100 text-gray-600'}`}>
-                    {STATUS_LABEL[emp.status] ?? emp.status}
-                  </span>
+                <div className="flex items-center gap-2">
                   <Select
                     value={emp.status}
                     onValueChange={(val) => handleEmployeeStatusChange(emp.employeeId, val)}
                     disabled={savingEmployees.has(emp.employeeId)}
                   >
-                    <SelectTrigger className="w-36 h-8 text-xs">
+                    <SelectTrigger className={`w-36 h-8 text-xs font-medium border ${STATUS_STYLES[emp.status] ?? 'bg-gray-100 text-gray-600'}`}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="PENDING">Required</SelectItem>
-                      <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
-                      <SelectItem value="COMPLETED">Completed</SelectItem>
+                      <SelectItem value="PENDING" className="text-red-600 font-medium">Required</SelectItem>
+                      <SelectItem value="IN_PROGRESS" className="text-blue-600 font-medium">In Progress</SelectItem>
+                      <SelectItem value="COMPLETED" className="text-green-700 font-medium">Completed</SelectItem>
                     </SelectContent>
                   </Select>
                   {savingEmployees.has(emp.employeeId) && (

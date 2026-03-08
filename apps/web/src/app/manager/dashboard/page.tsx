@@ -86,13 +86,13 @@ interface DashboardData {
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 const STATUS_LABEL: Record<string, string> = {
-  PENDING: 'Pending',
+  PENDING: 'Required',
   IN_PROGRESS: 'In Progress',
   COMPLETED: 'Completed',
 };
 
 const STATUS_STYLES: Record<string, string> = {
-  PENDING: 'bg-yellow-100 text-yellow-700',
+  PENDING: 'bg-red-100 text-red-600',
   IN_PROGRESS: 'bg-blue-100 text-blue-700',
   COMPLETED: 'bg-green-100 text-green-700',
 };
@@ -156,7 +156,6 @@ export default function ManagerDashboard() {
 
   // Edit Request modal
   const [editRequest, setEditRequest] = useState<TrainingRequest | null>(null);
-  const [editStatus, setEditStatus] = useState('');
   const [editDueDate, setEditDueDate] = useState('');
   const [editEmployees, setEditEmployees] = useState<string[]>([]);
   const [submittingEdit, setSubmittingEdit] = useState(false);
@@ -272,7 +271,6 @@ export default function ManagerDashboard() {
 
   function openEdit(req: TrainingRequest) {
     setEditRequest(req);
-    setEditStatus(req.status);
     setEditDueDate(req.dueDate.slice(0, 10));
     setEditEmployees(req.employees.map((e) => e.employeeId));
     setReqErrors({});
@@ -296,7 +294,6 @@ export default function ManagerDashboard() {
       await apiRequest(`/manager/requests/${editRequest.id}`, {
         method: 'PATCH',
         body: JSON.stringify({
-          status: editStatus,
           dueDate: editDueDate,
           employeeIds: editEmployees,
         }),
@@ -699,19 +696,6 @@ export default function ManagerDashboard() {
               <div className="mt-1 px-3 py-2 border border-gray-200 rounded-md bg-gray-50 text-sm text-gray-700">
                 {editRequest.trainingCategory.name}
               </div>
-            </div>
-            <div>
-              <Label>Status</Label>
-              <Select value={editStatus} onValueChange={setEditStatus}>
-                <SelectTrigger className="mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="PENDING">Pending</SelectItem>
-                  <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
-                  <SelectItem value="COMPLETED">Completed</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
             <div>
               <Label>Due Date</Label>

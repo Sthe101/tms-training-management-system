@@ -5,8 +5,6 @@ import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Users } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useToast } from '@/context/toast-context';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -21,6 +19,7 @@ interface EmployeeItem {
   employeeId: string;
   name: string;
   employeeNumber: string;
+  status: string;
 }
 
 interface RequestDetail {
@@ -66,14 +65,13 @@ export default function RequestDetailPage() {
 
   const [request, setRequest] = useState<RequestDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [status, setStatus] = useState('');
-  const [saving, setSaving] = useState(false);
+  // Track which employees are currently being saved
+  const [savingEmployees, setSavingEmployees] = useState<Set<string>>(new Set());
 
   const load = useCallback(async () => {
     try {
       const res = await api.clerk.getRequestById(id) as { request: RequestDetail };
       setRequest(res.request);
-      setStatus(res.request.status);
     } catch (err: any) {
       toast.error(err?.message || 'Failed to load request');
     } finally {
@@ -84,17 +82,21 @@ export default function RequestDetailPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  async function handleSaveStatus() {
-    if (!request || status === request.status) return;
-    setSaving(true);
+  async function handleEmployeeStatusChange(employeeId: string, newStatus: string) {
+    if (!request) return;
+    setSavingEmployees((prev) => new Set(prev).add(employeeId));
     try {
-      const res = await api.clerk.updateRequestStatus(id, status) as { request: RequestDetail };
+      const res = await api.clerk.updateEmployeeStatus(id, employeeId, { status: newStatus }) as { request: RequestDetail };
       setRequest(res.request);
       toast.success('Status updated');
     } catch (err: any) {
       toast.error(err?.message || 'Failed to update status');
     } finally {
-      setSaving(false);
+      setSavingEmployees((prev) => {
+        const next = new Set(prev);
+        next.delete(employeeId);
+        return next;
+      });
     }
   }
 
@@ -107,7 +109,6 @@ export default function RequestDetailPage() {
   }
 
   const shortId = request.id.slice(0, 8).toUpperCase();
-  const statusChanged = status !== request.status;
 
   return (
     <>
@@ -154,34 +155,6 @@ export default function RequestDetailPage() {
         </div>
       </div>
 
-      {/* Update Status */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-        <h2 className="font-semibold text-gray-900 mb-1">Update Status</h2>
-        <p className="text-sm text-gray-400 mb-4">Change the training request status</p>
-        <div className="flex items-end gap-3">
-          <div className="flex-1 max-w-xs">
-            <Label className="text-sm">Status</Label>
-            <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger className="mt-1">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="PENDING">Required</SelectItem>
-                <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
-                <SelectItem value="COMPLETED">Completed</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <Button
-            onClick={handleSaveStatus}
-            disabled={saving || !statusChanged}
-            className="bg-[#0f3460] hover:bg-[#0a2540]"
-          >
-            {saving ? 'Saving...' : 'Save Changes'}
-          </Button>
-        </div>
-      </div>
-
       {/* Assigned Employees */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">
         <div className="flex items-center gap-2 mb-1">
@@ -190,17 +163,44 @@ export default function RequestDetailPage() {
             Assigned Employees ({request.employees.length})
           </h2>
         </div>
-        <p className="text-sm text-gray-400 mb-5">Employees included in this training request</p>
+        <p className="text-sm text-gray-400 mb-5">
+          Update each employee&apos;s training status individually. The overall request status is derived automatically.
+        </p>
 
         {request.employees.length === 0 ? (
           <div className="text-center text-gray-400 py-8 text-sm">No employees assigned.</div>
         ) : (
           <div className="space-y-2">
             {request.employees.map((emp) => (
-              <div key={emp.employeeId} className="flex items-center justify-between px-4 py-3 border border-gray-100 rounded-lg">
+              <div
+                key={emp.employeeId}
+                className="flex items-center justify-between px-4 py-3 border border-gray-100 rounded-lg"
+              >
                 <div>
                   <p className="text-sm font-medium text-gray-900">{emp.name}</p>
                   <p className="text-xs text-[#0891b2]">{emp.employeeNumber}</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${STATUS_STYLES[emp.status] ?? 'bg-gray-100 text-gray-600'}`}>
+                    {STATUS_LABEL[emp.status] ?? emp.status}
+                  </span>
+                  <Select
+                    value={emp.status}
+                    onValueChange={(val) => handleEmployeeStatusChange(emp.employeeId, val)}
+                    disabled={savingEmployees.has(emp.employeeId)}
+                  >
+                    <SelectTrigger className="w-36 h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="PENDING">Required</SelectItem>
+                      <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
+                      <SelectItem value="COMPLETED">Completed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {savingEmployees.has(emp.employeeId) && (
+                    <span className="text-xs text-gray-400">Saving...</span>
+                  )}
                 </div>
               </div>
             ))}

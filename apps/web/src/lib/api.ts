@@ -197,10 +197,10 @@ export const api = {
     getRequestById: (id: string) =>
       apiRequest(`/clerk/requests/${id}`),
 
-    updateRequestStatus: (id: string, status: string) =>
-      apiRequest(`/clerk/requests/${id}/status`, {
+    updateEmployeeStatus: (requestId: string, employeeId: string, body: { status: string }) =>
+      apiRequest(`/clerk/requests/${requestId}/employees/${employeeId}`, {
         method: 'PATCH',
-        body: JSON.stringify({ status }),
+        body: JSON.stringify(body),
       }),
   },
 };

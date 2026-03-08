@@ -131,10 +131,42 @@ export class ManagerService {
     if (trainingCategoryId) data.trainingCategoryId = trainingCategoryId;
 
     if (employeeIds !== undefined) {
-      // Replacing employees resets all statuses to PENDING, so overall status resets to PENDING
-      await this.prisma.requestEmployee.deleteMany({ where: { requestId: id } });
-      data.employees = { create: employeeIds.map((employeeId) => ({ employeeId })) };
-      data.status = 'PENDING';
+      // Get existing employees with their current statuses
+      const existing = await this.prisma.requestEmployee.findMany({
+        where: { requestId: id },
+        select: { employeeId: true, status: true },
+      });
+      const existingMap = new Map(existing.map((e) => [e.employeeId, e.status]));
+
+      // Remove employees that are no longer in the list
+      const toRemove = existing.filter((e) => !employeeIds.includes(e.employeeId));
+      if (toRemove.length > 0) {
+        await this.prisma.requestEmployee.deleteMany({
+          where: { requestId: id, employeeId: { in: toRemove.map((e) => e.employeeId) } },
+        });
+      }
+
+      // Add new employees (only those not already present)
+      const toAdd = employeeIds.filter((empId) => !existingMap.has(empId));
+      if (toAdd.length > 0) {
+        await this.prisma.requestEmployee.createMany({
+          data: toAdd.map((employeeId) => ({ requestId: id, employeeId })),
+        });
+      }
+
+      // Re-derive overall status from remaining employees
+      const remaining = await this.prisma.requestEmployee.findMany({
+        where: { requestId: id },
+        select: { status: true },
+      });
+      const statuses = remaining.map((e) => e.status as string);
+      if (statuses.length === 0 || statuses.some((s) => s === 'PENDING')) {
+        data.status = 'PENDING';
+      } else if (statuses.every((s) => s === 'COMPLETED')) {
+        data.status = 'COMPLETED';
+      } else {
+        data.status = 'IN_PROGRESS';
+      }
     }
 
     return this.prisma.trainingRequest.update({
